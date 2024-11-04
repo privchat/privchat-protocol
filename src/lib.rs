@@ -105,33 +105,15 @@ impl Protocol {
             enc.write_int32(p.expire.unwrap_or(0) as i32);
         }
     
-        let msg_key = SecurityManager::shared()
-            .lock()
-            .unwrap()
-            .encryption(p.verify_string().as_bytes())
-            .map(|data| general_purpose::STANDARD.encode(data))
-            .unwrap_or_else(|_| "".to_string());
-
         let mut hasher = Md5::new();
-        hasher.update(&msg_key);
+        hasher.update(&p.verify_string().as_bytes());
         enc.write_string(&format!("{:x}", hasher.finalize()));
     
         if p.setting.topic {
             enc.write_string(p.topic.as_deref().unwrap_or(""));
         }
 
-        // Base64 编码后的加密 payload
-        let encoded_payload = SecurityManager::shared()
-        .lock()
-        .unwrap()
-        .encryption(&p.payload)
-        .map(|data| general_purpose::STANDARD.encode(data))
-        .unwrap_or_else(|_| "".to_string());
-
-        // 写入 Base64 编码后的 payload
-        if !encoded_payload.is_empty() {
-            enc.write_string(&encoded_payload);
-        }
+        enc.write_string(std::str::from_utf8(&p.payload).unwrap());
     
         enc.to_uint8_array()
     }
@@ -163,19 +145,8 @@ impl Protocol {
         if p.setting.topic {
             p.topic = Some(decoder.read_string());
         }
-    
-        // 读取 Base64 编码的 payload 并解密
-        let encoded_payload = decoder.read_string();
-    
-        let decoded_payload = general_purpose::STANDARD
-            .decode(encoded_payload.as_bytes())
-            .expect("Failed to decode base64 payload");
-    
-        p.payload = SecurityManager::shared()
-            .lock()
-            .unwrap()
-            .decryption(&decoded_payload)
-            .unwrap_or_else(|_| vec![]); // 解密失败返回空 Vec
+
+        p.payload = decoder.read_string().into_bytes();
     
         Box::new(p)
     }
