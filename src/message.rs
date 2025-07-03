@@ -1,451 +1,774 @@
 use num_bigint::BigInt;
-use std::any::Any;
-use std::convert::TryFrom;
+use std::fmt::Debug;
 
-static mut PROTOCOL_VERSION: u8 = 0; // 服务端返回的协议版本
+/// 消息基础trait
+pub trait Message: Debug + Send + Sync {
+    /// 获取消息类型
+    fn message_type(&self) -> MessageType;
+}
 
-// 消息类型
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Hash)]
+/// 消息类型枚举
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MessageType {
-    Reserved = 0,   // 保留位
-    Connect = 1,    // 客户端请求连接到服务器(c2s)
-    ConnectAck = 2, // 服务端收到连接请求后确认的报文(s2c)
-    Send = 3,       // 发送消息(c2s)
-    SendAck = 4,    // 收到消息确认的报文(s2c)
-    Recv = 5,       // 收取消息(s2c)
-    RecvAck = 6,    // 收取消息确认(c2s)
-    Ping = 7,       // ping请求
-    Pong = 8,       // 对ping请求的相应
-    Disconnect = 9, // 请求断开连接
-    Subscribe = 10,       // 订阅
-    SubscribeAck = 11,    // 订阅确认
+    /// 连接请求 - 客户端发起连接
+    ConnectRequest = 1,
+    /// 连接响应 - 服务端连接确认
+    ConnectResponse = 2,
+    /// 断开连接请求 - 客户端主动断开
+    DisconnectRequest = 3,
+    /// 断开连接响应 - 服务端断开确认
+    DisconnectResponse = 4,
+    /// 发送消息请求 - 客户端发送消息
+    SendRequest = 5,
+    /// 发送消息响应 - 服务端发送确认
+    SendResponse = 6,
+    /// 接收消息请求 - 服务端推送消息
+    RecvRequest = 7,
+    /// 接收消息响应 - 客户端接收确认
+    RecvResponse = 8,
+    /// 批量接收消息请求 - 服务端批量推送消息
+    RecvBatchRequest = 9,
+    /// 批量接收消息响应 - 客户端批量接收确认
+    RecvBatchResponse = 10,
+    /// 心跳请求 - 客户端发送心跳
+    PingRequest = 11,
+    /// 心跳响应 - 服务端心跳回复
+    PongResponse = 12,
+    /// 订阅请求 - 客户端订阅频道
+    SubscribeRequest = 13,
+    /// 订阅响应 - 服务端订阅确认
+    SubscribeResponse = 14,
+    /// 推送消息请求 - 服务端推送频道消息
+    PublishRequest = 15,
+    /// 推送消息响应 - 客户端推送确认
+    PublishResponse = 16,
 }
 
-impl MessageType {
-    pub fn to_u32(&self) -> u32 {
-        *self as u32
-    }
-}
-
-impl From<MessageType> for u32 {
-    fn from(msg_type: MessageType) -> Self {
-        msg_type as u32
-    }
-}
-
-impl TryFrom<u32> for MessageType {
-    type Error = ();
-
-    fn try_from(value: u32) -> Result<Self, Self::Error> {
-        match value {
-            0 => Ok(MessageType::Reserved),
-            1 => Ok(MessageType::Connect),
-            2 => Ok(MessageType::ConnectAck),
-            3 => Ok(MessageType::Send),
-            4 => Ok(MessageType::SendAck),
-            5 => Ok(MessageType::Recv),
-            6 => Ok(MessageType::RecvAck),
-            7 => Ok(MessageType::Ping),
-            8 => Ok(MessageType::Pong),
-            9 => Ok(MessageType::Disconnect),
-            10 => Ok(MessageType::Subscribe),
-            11 => Ok(MessageType::SubscribeAck),
-            _ => Err(()), // 如果传入的 u32 不是有效的消息类型，则返回错误
-        }
-    }
-}
-
-// 设置
-#[derive(Clone, Debug)]
-pub struct Setting {
-    pub receipt_enabled: bool, // 消息回执是否开启
-    pub topic: bool,           // 是否存在话题
-    pub stream_on: bool,
-    pub stream_no: String, // 流号
-}
-
-impl Setting {
-    pub fn new() -> Self {
-        Self {
-            receipt_enabled: false,
-            topic: false,
-            stream_on: false,
-            stream_no: String::new(),
-        }
-    }
-
-    pub fn set_stream_no(&mut self, v: String) {
-        if !v.is_empty() {
-            self.stream_on = true;
-        } else {
-            self.stream_on = false;
-        }
-        self.stream_no = v;
-    }
-
-    pub fn stream_no(&self) -> &str {
-        &self.stream_no
-    }
-
-    pub fn stream_on(&self) -> bool {
-        self.stream_on
-    }
-
-    pub fn to_uint8(&self) -> u8 {
-        (self.bool_to_int(self.receipt_enabled) << 7)
-            | (self.bool_to_int(self.topic) << 3)
-            | (self.bool_to_int(self.stream_on) << 2)
-    }
-
-    pub fn from_uint8(v: u8) -> Self {
-        let mut setting = Self::new();
-        setting.receipt_enabled = (v >> 7 & 0x01) > 0;
-        setting.topic = (v >> 3 & 0x01) > 0;
-        setting.stream_on = (v >> 2 & 0x01) > 0;
-        setting
-    }
-
-    fn bool_to_int(&self, v: bool) -> u8 {
-        if v {
-            1
-        } else {
-            0
-        }
-    }
-}
-
-// 包
-#[derive(Clone, Debug)]
-pub struct Packet<T> {
-    pub no_persist: bool,
-    pub reddot: bool,
-    pub sync_once: bool,
-    pub dup: bool,
-    pub remaining_length: usize,
-    pub message_type: MessageType,
-    pub message_object: T,
-}
-
-impl<T> Packet<T> {
-    pub fn new(message_object: T, message_type: MessageType) -> Self {
-        Self {
-            no_persist: false,
-            reddot: false,
-            sync_once: false,
-            dup: false,
-            remaining_length: 0,
-            message_type,
-            message_object,
-        }
-    }
-
-    pub fn from(&mut self, f: &Packet<T>) {
-        self.no_persist = f.no_persist;
-        self.reddot = f.reddot;
-        self.sync_once = f.sync_once;
-        self.dup = f.dup;
-        self.remaining_length = f.remaining_length;
-        self.message_type = f.message_type;
-    }
-}
-
-// 连接消息
-#[derive(Debug)]
-pub struct ConnectMessage {
-    pub version: u8,           // 版本
-    pub client_key: String,    // 客户端key
-    pub device_id: String,     // 设备ID
-    pub device_flag: u8,       // 设备标示
-    pub client_timestamp: i64, // 客户端时间戳
-    pub uid: String,           // 用户UID
-    pub token: String,         // 用户token
-}
-
-impl ConnectMessage {
-    pub fn new() -> Self {
-        Self {
-            version: 0,
-            client_key: String::new(),
-            device_id: String::new(),
-            device_flag: 0,
-            client_timestamp: 0,
-            uid: String::new(),
-            token: String::new(),
-        }
-    }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::Connect)
-    }
-
-    pub fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
-// 连接回执消息
-#[derive(Debug)]
-pub struct ConnectAckMessage {
-    pub protocol_version: u8, // 服务端版本
-    pub server_key: String, // 通过客户端的RSA公钥加密的服务端DH公钥
-    pub salt: String,       // salt
-    pub time_diff: BigInt,  // 客户端时间与服务器的差值，单位毫秒
-    pub reason_code: u8,    // 原因码
-    pub node_id: BigInt,    // 节点ID
-}
-
-impl ConnectAckMessage {
-    pub fn new() -> Self {
-        Self {
-            protocol_version: 0,
-            server_key: String::new(),
-            salt: String::new(),
-            time_diff: BigInt::default(),
-            reason_code: 0,
-            node_id: BigInt::default(),
-        }
-    }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::ConnectAck)
-    }
-}
-
-// 断开消息
-#[derive(Debug)]
-pub struct DisconnectMessage {
-    pub reason_code: u8, // 原因码
-    pub reason: String,  // 具体断开原因
-}
-
-impl DisconnectMessage {
-    pub fn new() -> Self {
-        Self {
-            reason_code: 0,
-            reason: String::new(),
-        }
-    }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::Disconnect)
-    }
-}
-
-// 发送消息
-#[derive(Clone, Debug)]
-pub struct SendMessage {
-    pub setting: Setting, // 设置
-    pub client_seq: u32,
-    pub client_msg_no: String, // 客户端唯一消息编号（用于消息去重）
-    pub stream_no: String,     // 流式编号
-    pub channel_id: String,    // 频道ID
-    pub channel_type: u8,      // 频道类型
-    pub expire: Option<u32>,   // 消息过期时间
-    pub from_uid: String,      // 发送UID
-    pub topic: Option<String>,
-    pub payload: Vec<u8>, // 负荷数据
-}
-
-impl SendMessage {
-    pub fn new() -> Self {
-        Self {
-            setting: Setting::new(),
-            client_seq: 0,
-            client_msg_no: String::new(),
-            stream_no: String::new(),
-            channel_id: String::new(),
-            channel_type: 0,
-            expire: None,
-            from_uid: String::new(),
-            topic: None,
-            payload: Vec::new(),
-        }
-    }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::Send)
-    }
-
-    pub fn verify_string(&self) -> String {
-        let payload_str = String::from_utf8_lossy(&self.payload).to_string();
-        format!(
-            "{}{}{}{}{}",
-            self.client_seq, self.client_msg_no, self.channel_id, self.channel_type, payload_str
-        )
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum StreamFlag {
-    Start = 0,
-    Ing = 1,
-    End = 2,
-}
-
-impl From<u8> for StreamFlag {
+impl From<u8> for MessageType {
     fn from(value: u8) -> Self {
         match value {
-            0 => StreamFlag::Start,
-            1 => StreamFlag::Ing,
-            2 => StreamFlag::End,
-            _ => panic!("Invalid value for StreamFlag"),
+            1 => MessageType::ConnectRequest,
+            2 => MessageType::ConnectResponse,
+            3 => MessageType::DisconnectRequest,
+            4 => MessageType::DisconnectResponse,
+            5 => MessageType::SendRequest,
+            6 => MessageType::SendResponse,
+            7 => MessageType::RecvRequest,
+            8 => MessageType::RecvResponse,
+            9 => MessageType::RecvBatchRequest,
+            10 => MessageType::RecvBatchResponse,
+            11 => MessageType::PingRequest,
+            12 => MessageType::PongResponse,
+            13 => MessageType::SubscribeRequest,
+            14 => MessageType::SubscribeResponse,
+            15 => MessageType::PublishRequest,
+            16 => MessageType::PublishResponse,
+            _ => MessageType::ConnectRequest, // 默认值
         }
     }
 }
 
-// 收消息
-#[derive(Debug)]
-pub struct RecvMessage {
-    pub setting: Setting,        // 设置
-    pub msg_key: String,         // 用于验证此消息是否合法（仿中间人篡改）
-    pub message_id: String,      // 消息ID
-    pub message_seq: u32,        // 消息序列号
-    pub client_msg_no: String,   // 客户端唯一消息编号
-    pub stream_no: String,       // 流式编号
-    pub stream_seq: u32,         // 流式序列号
-    pub stream_flag: StreamFlag, // 流式标示
-    pub timestamp: u32,          // 消息时间戳
-    pub channel_id: String,      // 频道ID
-    pub channel_type: u8,        // 频道类型
-    pub expire: Option<u32>,     // 消息过期时间
-    pub topic: Option<String>,   // topic
-    pub from_uid: String,        // 发送者UID
-    pub payload: Vec<u8>,        // 负荷数据
+impl From<MessageType> for u8 {
+    fn from(msg_type: MessageType) -> Self {
+        msg_type as u8
+    }
 }
 
-impl RecvMessage {
+/// 消息设置
+#[derive(Debug, Clone, Default)]
+pub struct MessageSetting {
+    pub need_receipt: bool,
+    pub signal: u8,
+}
+
+impl MessageSetting {
     pub fn new() -> Self {
-        Self {
-            setting: Setting::new(),
-            msg_key: String::new(),
-            message_id: String::new(),
-            message_seq: 0,
-            client_msg_no: String::new(),
-            stream_no: String::new(),
-            stream_seq: 0,
-            stream_flag: StreamFlag::Start,
-            timestamp: 0,
-            channel_id: String::new(),
-            channel_type: 0,
-            expire: None,
-            topic: None,
-            from_uid: String::new(),
-            payload: Vec::new(),
-        }
-    }
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::Recv)
-    }
-
-    pub fn verify_string(&self) -> String {
-        let payload_str = String::from_utf8_lossy(&self.payload).to_string();
-        format!(
-            "{}{}{}{}{}{}{}{}",
-            self.message_id,
-            self.message_seq,
-            self.client_msg_no,
-            self.timestamp,
-            self.from_uid,
-            self.channel_id,
-            self.channel_type,
-            payload_str
-        )
+        Self::default()
     }
 }
 
-// 消息发送回执
-#[derive(Debug)]
-pub struct SendAckMessage {
+/// 数据包结构
+#[derive(Debug, Clone)]
+pub struct Packet<T: Message> {
+    pub message_type: MessageType,
+    pub body: T,
+}
+
+impl<T: Message> Packet<T> {
+    pub fn new(message_type: MessageType, body: T) -> Self {
+        Self {
+            message_type,
+            body,
+        }
+    }
+}
+
+/// 连接消息
+#[derive(Debug, Clone, Default)]
+pub struct ConnectRequest {
+    pub version: u8,
+    pub device_id: String,
+    pub device_flag: u8,
+    pub client_timestamp: i64,
+    pub uid: String,
+    pub token: String,
+    pub client_key: String,
+}
+
+impl ConnectRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::ConnectRequest, self)
+    }
+}
+
+/// 连接确认消息
+#[derive(Debug, Clone, Default)]
+pub struct ConnectResponse {
+    pub protocol_version: u8,
+    pub server_key: String,
+    pub salt: String,
+    pub time_diff: BigInt,
+    pub reason_code: u8,
+    pub node_id: BigInt,
+}
+
+impl ConnectResponse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::ConnectResponse, self)
+    }
+}
+
+/// 发送消息
+#[derive(Debug, Clone, Default)]
+pub struct SendRequest {
+    pub setting: MessageSetting,
+    pub client_seq: u32,
+    pub client_msg_no: String,
+    pub stream_no: String,
+    pub channel_id: String,
+    pub channel_type: u8,
+    pub expire: u32,
+    pub from_uid: String,
+    pub topic: String,
+    pub payload: Vec<u8>,
+}
+
+impl SendRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::SendRequest, self)
+    }
+    
+    pub fn verify_string(&self) -> String {
+        format!("{}:{}:{}", self.client_msg_no, self.channel_id, self.from_uid)
+    }
+}
+
+/// 发送确认消息
+#[derive(Debug, Clone, Default)]
+pub struct SendResponse {
     pub client_seq: u32,
     pub message_id: BigInt,
     pub message_seq: u32,
     pub reason_code: u8,
 }
 
-impl SendAckMessage {
+impl SendResponse {
     pub fn new() -> Self {
-        Self {
-            client_seq: 0,
-            message_id: BigInt::default(),
-            message_seq: 0,
-            reason_code: 0,
-        }
+        Self::default()
     }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::SendAck)
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::SendResponse, self)
     }
 }
 
-// 收到消息回执给服务端的消息
-#[derive(Debug)]
-pub struct RecvAckMessage {
-    pub message_id: String,
+/// 接收消息
+#[derive(Debug, Clone, Default)]
+pub struct RecvRequest {
+    pub setting: MessageSetting,
+    pub msg_key: String,
+    pub message_id: BigInt,
     pub message_seq: u32,
+    pub client_msg_no: String,
+    pub stream_no: String,
+    pub stream_seq: u32,
+    pub stream_flag: u8,
+    pub timestamp: u32,
+    pub channel_id: String,
+    pub channel_type: u8,
+    pub expire: u32,
+    pub topic: String,
+    pub from_uid: String,
+    pub payload: Vec<u8>,
 }
 
-impl RecvAckMessage {
+impl RecvRequest {
     pub fn new() -> Self {
-        Self {
-            message_id: String::new(),
-            message_seq: 0,
-        }
+        Self::default()
     }
-
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::RecvAck)
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RecvRequest, self)
+    }
+    
+    pub fn verify_string(&self) -> String {
+        format!("{}:{}:{}", self.message_id, self.channel_id, self.from_uid)
     }
 }
 
-// 订阅消息
-#[derive(Debug)]
-pub struct SubscribeMessage {
-    pub setting: u8,           // 设置
-    pub client_msg_no: String, // 客户端唯一消息编号
-    pub channel_id: String,    // 频道ID
-    pub channel_type: u8,      // 频道类型
-    pub action: u8,            // 0:订阅 1:取消订阅
-    pub param: Option<String>, // 参数
+/// 接收确认消息
+#[derive(Debug, Clone, Default)]
+pub struct RecvResponse {
+    pub succeed: bool,
+    pub message: Option<String>,
 }
 
-impl SubscribeMessage {
+impl RecvResponse {
     pub fn new() -> Self {
-        Self {
-            setting: 0,
-            client_msg_no: String::new(),
-            channel_id: String::new(),
-            channel_type: 0,
-            action: 0,
-            param: None,
-        }
+        Self::default()
     }
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::Subscribe)
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RecvResponse, self)
     }
 }
 
-// 订阅确认消息
-#[derive(Debug)]
-pub struct SubscribeAckMessage {
-    pub client_msg_no: String, // 客户端唯一消息编号
-    pub channel_id: String,    // 频道ID
-    pub channel_type: u8,      // 频道类型
-    pub action: u8,            // 0:订阅 1:取消订阅
+/// 心跳消息
+#[derive(Debug, Clone, Default)]
+pub struct PingRequest {
+    pub timestamp: i64,
+}
+
+impl PingRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::PingRequest, self)
+    }
+}
+
+/// 心跳回复消息
+#[derive(Debug, Clone, Default)]
+pub struct PongResponse {
+    pub timestamp: i64,
+}
+
+impl PongResponse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::PongResponse, self)
+    }
+}
+
+/// 断开连接消息
+#[derive(Debug, Clone, Default)]
+pub struct DisconnectRequest {
+    pub reason_code: u8,
+    pub reason: String,
+}
+
+impl DisconnectRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::DisconnectRequest, self)
+    }
+}
+
+/// 订阅消息
+#[derive(Debug, Clone, Default)]
+pub struct SubscribeRequest {
+    pub setting: u8,
+    pub client_msg_no: String,
+    pub channel_id: String,
+    pub channel_type: u8,
+    pub action: u8,
+    pub param: String,
+}
+
+impl SubscribeRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::SubscribeRequest, self)
+    }
+}
+
+/// 订阅确认消息
+#[derive(Debug, Clone, Default)]
+pub struct SubscribeResponse {
+    pub client_msg_no: String,
+    pub channel_id: String,
+    pub channel_type: u8,
+    pub action: u8,
     pub reason_code: u8,
 }
 
-impl SubscribeAckMessage {
+impl SubscribeResponse {
     pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::SubscribeResponse, self)
+    }
+}
+
+/// 批量接收消息 - 用于服务器向客户端批量推送消息
+#[derive(Debug, Clone, Default)]
+pub struct RecvBatchRequest {
+    /// 批量消息列表
+    pub messages: Vec<RecvRequest>
+}
+
+impl RecvBatchRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RecvBatchRequest, self)
+    }
+    
+    /// 创建单个批次的批量消息
+    pub fn single_batch(messages: Vec<RecvRequest>) -> Self {
         Self {
-            client_msg_no: String::new(),
-            channel_id: String::new(),
-            channel_type: 0,
-            action: 0,
-            reason_code: 0,
+            messages,
         }
     }
+    
+    /// 创建多批次中的一个批次
+    pub fn multi_batch(
+        messages: Vec<RecvRequest>,
+    ) -> Self {
+        Self {
+            messages,
+        }
+    }
+    
+    /// 获取消息数量
+    pub fn message_count(&self) -> usize {
+        self.messages.len()
+    }
+    
+    /// 检查是否为空批次
+    pub fn is_empty(&self) -> bool {
+        self.messages.is_empty()
+    }
+}
 
-    pub fn create_packet(self) -> Packet<Box<dyn Any>> {
-        Packet::new(Box::new(self), MessageType::SubscribeAck)
+/// 批量接收确认消息（客户端 → 服务端）
+#[derive(Debug, Clone, Default)]
+pub struct RecvBatchResponse {
+    pub succeed: bool,
+    pub message: Option<String>,
+}
+
+impl RecvBatchResponse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RecvBatchResponse, self)
+    }
+    
+    /// 创建成功确认
+    pub fn success() -> Self {
+        Self {
+            succeed: true,
+            message: Some("批量消息接收成功".to_string()),
+        }
+    }
+    
+    /// 创建失败确认
+    pub fn failure(error_msg: &str) -> Self {
+        Self {
+            succeed: false,
+            message: Some(error_msg.to_string()),
+        }
+    }
+}
+
+/// 断开连接确认消息（服务端 → 客户端）
+#[derive(Debug, Clone, Default)]
+pub struct DisconnectResponse {
+    pub succeed: bool,
+    pub message: Option<String>,
+}
+
+impl DisconnectResponse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::DisconnectResponse, self)
+    }
+    
+    /// 创建成功确认
+    pub fn success() -> Self {
+        Self {
+            succeed: true,
+            message: Some("断开连接成功".to_string()),
+        }
+    }
+    
+    /// 创建失败确认
+    pub fn failure(error_msg: &str) -> Self {
+        Self {
+            succeed: false,
+            message: Some(error_msg.to_string()),
+        }
+    }
+}
+
+/// 频道推送消息（服务端 → 客户端广播）
+#[derive(Debug, Clone, Default)]
+pub struct PublishRequest {
+    pub channel_id: String,        // 频道ID
+    pub topic: Option<String>,     // 主题/标签（可选）
+    pub timestamp: u64,            // 推送时间戳
+    pub payload: Vec<u8>,          // 消息内容
+    pub publisher: Option<String>, // 发布者（可选，可能是系统/机器人）
+    pub message_id: Option<String>, // 消息ID（用于去重）
+}
+
+impl PublishRequest {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::PublishRequest, self)
+    }
+    
+    /// 创建系统推送消息
+    pub fn system_push(channel_id: &str, payload: Vec<u8>) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let message_id = format!("sys_{}_{}", channel_id, timestamp);
+        
+        Self {
+            channel_id: channel_id.to_string(),
+            topic: None,
+            timestamp,
+            payload,
+            publisher: Some("system".to_string()),
+            message_id: Some(message_id),
+        }
+    }
+    
+    /// 创建主题推送消息
+    pub fn topic_push(channel_id: &str, topic: &str, payload: Vec<u8>) -> Self {
+        use std::time::{SystemTime, UNIX_EPOCH};
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let message_id = format!("topic_{}_{}", topic, timestamp);
+        
+        Self {
+            channel_id: channel_id.to_string(),
+            topic: Some(topic.to_string()),
+            timestamp,
+            payload,
+            publisher: None,
+            message_id: Some(message_id),
+        }
+    }
+}
+
+/// 推送确认消息（客户端 → 服务端）
+#[derive(Debug, Clone, Default)]
+pub struct PublishResponse {
+    pub succeed: bool,
+    pub message: Option<String>,
+}
+
+impl PublishResponse {
+    pub fn new() -> Self {
+        Self::default()
+    }
+    
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::PublishResponse, self)
+    }
+    
+    /// 创建成功确认
+    pub fn success() -> Self {
+        Self {
+            succeed: true,
+            message: Some("推送消息接收成功".to_string()),
+        }
+    }
+    
+    /// 创建失败确认
+    pub fn failure(error_msg: &str) -> Self {
+        Self {
+            succeed: false,
+            message: Some(error_msg.to_string()),
+        }
+    }
+}
+
+// 为所有消息类型实现 Message trait
+impl Message for ConnectRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::ConnectRequest
+    }
+}
+
+impl Message for ConnectResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::ConnectResponse
+    }
+}
+
+impl Message for SendRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::SendRequest
+    }
+}
+
+impl Message for SendResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::SendResponse
+    }
+}
+
+impl Message for RecvRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::RecvRequest
+    }
+}
+
+impl Message for RecvResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::RecvResponse
+    }
+}
+
+impl Message for PingRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::PingRequest
+    }
+}
+
+impl Message for PongResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::PongResponse
+    }
+}
+
+impl Message for DisconnectRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::DisconnectRequest
+    }
+}
+
+impl Message for SubscribeRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::SubscribeRequest
+    }
+}
+
+impl Message for SubscribeResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::SubscribeResponse
+    }
+}
+
+impl Message for RecvBatchRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::RecvBatchRequest
+    }
+}
+
+impl Message for RecvBatchResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::RecvBatchResponse
+    }
+}
+
+impl Message for DisconnectResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::DisconnectResponse
+    }
+}
+
+impl Message for PublishRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::PublishRequest
+    }
+}
+
+impl Message for PublishResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::PublishResponse
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_message_creation() {
+        let connect_msg = ConnectRequest::new();
+        let packet = connect_msg.create_packet();
+        assert_eq!(packet.message_type, MessageType::ConnectRequest);
+        
+        let send_msg = SendRequest::new();
+        let packet = send_msg.create_packet();
+        assert_eq!(packet.message_type, MessageType::SendRequest);
+    }
+    
+    #[test]
+    fn test_message_types() {
+        assert_eq!(MessageType::ConnectRequest as u8, 1);
+        assert_eq!(MessageType::ConnectResponse as u8, 2);
+        assert_eq!(MessageType::DisconnectRequest as u8, 3);
+        assert_eq!(MessageType::DisconnectResponse as u8, 4);
+        assert_eq!(MessageType::SendRequest as u8, 5);
+        assert_eq!(MessageType::SendResponse as u8, 6);
+        assert_eq!(MessageType::RecvRequest as u8, 7);
+        assert_eq!(MessageType::RecvResponse as u8, 8);
+        assert_eq!(MessageType::RecvBatchRequest as u8, 9);        // 批量接收消息
+        assert_eq!(MessageType::RecvBatchResponse as u8, 10);     // 批量接收确认
+        assert_eq!(MessageType::PingRequest as u8, 11);
+        assert_eq!(MessageType::PongResponse as u8, 12);
+        assert_eq!(MessageType::SubscribeRequest as u8, 13);
+        assert_eq!(MessageType::SubscribeResponse as u8, 14);
+        assert_eq!(MessageType::PublishRequest as u8, 15);          // 推送消息
+        assert_eq!(MessageType::PublishResponse as u8, 16);       // 推送确认
+    }
+    
+    #[test]
+    fn test_message_type_conversion() {
+        // 测试 u8 到 MessageType 的转换
+        assert_eq!(MessageType::from(1u8), MessageType::ConnectRequest);
+        assert_eq!(MessageType::from(2u8), MessageType::ConnectResponse);
+        assert_eq!(MessageType::from(3u8), MessageType::DisconnectRequest);
+        assert_eq!(MessageType::from(16u8), MessageType::PublishResponse);
+        
+        // 测试无效值的转换（应该返回默认值）
+        assert_eq!(MessageType::from(0u8), MessageType::ConnectRequest);
+        assert_eq!(MessageType::from(255u8), MessageType::ConnectRequest);
+        
+        // 测试 MessageType 到 u8 的转换
+        assert_eq!(u8::from(MessageType::ConnectRequest), 1);
+        assert_eq!(u8::from(MessageType::ConnectResponse), 2);
+        assert_eq!(u8::from(MessageType::PublishResponse), 16);
+        
+        // 测试双向转换一致性
+        for i in 1u8..=16u8 {
+            let msg_type = MessageType::from(i);
+            let back_to_u8 = u8::from(msg_type);
+            assert_eq!(back_to_u8, i, "转换不一致：{} -> {:?} -> {}", i, msg_type, back_to_u8);
+        }
+    }
+    
+    #[test]
+    fn test_message_setting() {
+        let setting = MessageSetting::new();
+        assert_eq!(setting.need_receipt, false);
+        assert_eq!(setting.signal, 0);
+        
+        let setting2 = MessageSetting {
+            need_receipt: true,
+            signal: 1,
+        };
+        assert_eq!(setting2.need_receipt, true);
+        assert_eq!(setting2.signal, 1);
+    }
+    
+    #[test]
+    fn test_batch_message() {
+        // 创建批量消息
+        let mut messages = Vec::new();
+        for i in 1..=3 {
+            let mut recv_msg = RecvRequest::new();
+            recv_msg.message_id = BigInt::from(i);
+            recv_msg.from_uid = format!("user_{}", i);
+            recv_msg.payload = format!("Message {}", i).into_bytes();
+            messages.push(recv_msg);
+        }
+        
+        let batch_msg = RecvBatchRequest::single_batch(messages);
+        assert_eq!(batch_msg.message_count(), 3);
+        
+        let packet = batch_msg.create_packet();
+        assert_eq!(packet.message_type, MessageType::RecvBatchRequest);
+    }
+    
+    #[test]
+    fn test_publish_message() {
+        // 测试系统推送消息
+        let system_msg = PublishRequest::system_push("news_channel", "系统通知内容".as_bytes().to_vec());
+        assert_eq!(system_msg.channel_id, "news_channel");
+        assert_eq!(system_msg.publisher, Some("system".to_string()));
+        assert!(system_msg.message_id.is_some());
+        
+        let packet = system_msg.create_packet();
+        assert_eq!(packet.message_type, MessageType::PublishRequest);
+        
+        // 测试主题推送消息
+        let topic_msg = PublishRequest::topic_push("tech_channel", "rust", "Rust新特性介绍".as_bytes().to_vec());
+        assert_eq!(topic_msg.channel_id, "tech_channel");
+        assert_eq!(topic_msg.topic, Some("rust".to_string()));
+        assert!(topic_msg.message_id.is_some());
+        
+        // 测试确认消息
+        let ack = PublishResponse::success();
+        assert_eq!(ack.succeed, true);
+        assert_eq!(ack.message, Some("推送消息接收成功".to_string()));
+        
+        let ack_packet = ack.create_packet();
+        assert_eq!(ack_packet.message_type, MessageType::PublishResponse);
+    }
+    
+    #[test]
+    fn test_disconnect_ack_message() {
+        let disconnect_ack = DisconnectResponse::success();
+        assert_eq!(disconnect_ack.succeed, true);
+        assert_eq!(disconnect_ack.message, Some("断开连接成功".to_string()));
+        
+        let packet = disconnect_ack.create_packet();
+        assert_eq!(packet.message_type, MessageType::DisconnectResponse);
+    }
+    
+    #[test]
+    fn test_recv_batch_ack_message() {
+        let batch_ack = RecvBatchResponse::success();
+        assert_eq!(batch_ack.succeed, true);
+        assert_eq!(batch_ack.message, Some("批量消息接收成功".to_string()));
+        
+        let packet = batch_ack.create_packet();
+        assert_eq!(packet.message_type, MessageType::RecvBatchResponse);
     }
 }
