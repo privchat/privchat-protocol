@@ -44,6 +44,10 @@ pub enum MessageType {
     PublishRequest = 15,
     /// 推送消息响应 - 客户端推送确认
     PublishResponse = 16,
+    /// RPC消息请求 - 客户端发送RPC消息
+    RPCRequest = 17,
+    /// RPC消息响应 - 服务端发送RPC消息
+    RPCResponse = 18,
 }
 
 impl From<u8> for MessageType {
@@ -65,6 +69,8 @@ impl From<u8> for MessageType {
             14 => MessageType::SubscribeResponse,
             15 => MessageType::PublishRequest,
             16 => MessageType::PublishResponse,
+            17 => MessageType::RPCRequest,
+            18 => MessageType::RPCResponse,
             _ => MessageType::ConnectRequest, // 默认值
         }
     }
@@ -621,6 +627,80 @@ impl PublishResponse {
     }
 }
 
+/// RPC 请求消息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RPCRequest {
+    /// 路由路径，格式：system/module/action
+    pub route: String,
+    /// 请求参数 JSON
+    pub body: serde_json::Value,
+}
+
+impl RPCRequest {
+    pub fn new() -> Self {
+        Self {
+            route: String::new(),
+            body: serde_json::Value::Null,
+        }
+    }
+
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RPCRequest, self)
+    }
+}
+
+/// RPC 响应消息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RPCResponse {
+    /// 状态码
+    pub code: i32,
+    /// 响应消息
+    pub message: String,
+    /// 响应数据
+    pub data: Option<serde_json::Value>,
+}
+
+impl RPCResponse {
+    pub fn new() -> Self {
+        Self {
+            code: 200,
+            message: "OK".to_string(),
+            data: None,
+        }
+    }
+
+    pub fn create_packet(self) -> Packet<Self> {
+        Packet::new(MessageType::RPCResponse, self)
+    }
+
+    /// 创建成功响应
+    pub fn success(data: serde_json::Value) -> Self {
+        Self {
+            code: 200,
+            message: "OK".to_string(),
+            data: Some(data),
+        }
+    }
+
+    /// 创建成功响应（无数据）
+    pub fn success_empty() -> Self {
+        Self {
+            code: 200,
+            message: "OK".to_string(),
+            data: None,
+        }
+    }
+
+    /// 创建错误响应
+    pub fn error(code: i32, message: String) -> Self {
+        Self {
+            code,
+            message,
+            data: None,
+        }
+    }
+}
+
 // 为所有消息类型实现 Message trait
 impl Message for ConnectRequest {
     fn message_type(&self) -> MessageType {
@@ -715,6 +795,18 @@ impl Message for PublishRequest {
 impl Message for PublishResponse {
     fn message_type(&self) -> MessageType {
         MessageType::PublishResponse
+    }
+}
+
+impl Message for RPCRequest {
+    fn message_type(&self) -> MessageType {
+        MessageType::RPCRequest
+    }
+}
+
+impl Message for RPCResponse {
+    fn message_type(&self) -> MessageType {
+        MessageType::RPCResponse
     }
 }
 
