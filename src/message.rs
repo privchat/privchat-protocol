@@ -1,5 +1,7 @@
 use num_bigint::BigInt;
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
+use std::collections::HashMap;
 
 /// 消息基础trait
 pub trait Message: Debug + Send + Sync {
@@ -8,7 +10,7 @@ pub trait Message: Debug + Send + Sync {
 }
 
 /// 消息类型枚举
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MessageType {
     /// 连接请求 - 客户端发起连接
     ConnectRequest = 1,
@@ -75,7 +77,7 @@ impl From<MessageType> for u8 {
 }
 
 /// 消息设置
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MessageSetting {
     pub need_receipt: bool,
     pub signal: u8,
@@ -88,7 +90,7 @@ impl MessageSetting {
 }
 
 /// 数据包结构
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Packet<T: Message> {
     pub message_type: MessageType,
     pub body: T,
@@ -103,51 +105,180 @@ impl<T: Message> Packet<T> {
     }
 }
 
-/// 连接消息
-#[derive(Debug, Clone, Default)]
+/// 连接请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectRequest {
-    pub version: u8,
-    pub device_id: String,
-    pub device_flag: u8,
-    pub client_timestamp: i64,
-    pub uid: String,
-    pub token: String,
-    pub client_key: String,
+    /// 认证类型
+    pub auth_type: AuthType,
+    /// 认证令牌
+    pub auth_token: String,
+    /// 客户端信息
+    pub client_info: ClientInfo,
+    /// 设备信息
+    pub device_info: DeviceInfo,
+    /// 协议版本
+    pub protocol_version: String,
+    /// 扩展属性
+    pub properties: HashMap<String, String>,
 }
 
-impl ConnectRequest {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    pub fn create_packet(self) -> Packet<Self> {
-        Packet::new(MessageType::ConnectRequest, self)
-    }
-}
-
-/// 连接确认消息
-#[derive(Debug, Clone, Default)]
+/// 连接响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConnectResponse {
-    pub protocol_version: u8,
-    pub server_key: String,
-    pub salt: String,
-    pub time_diff: BigInt,
-    pub reason_code: u8,
-    pub node_id: BigInt,
+    /// 连接是否成功
+    pub success: bool,
+    /// 错误码
+    pub error_code: Option<String>,
+    /// 错误信息
+    pub error_message: Option<String>,
+    /// 会话ID
+    pub session_id: Option<String>,
+    /// 用户ID
+    pub user_id: Option<String>,
+    /// 服务器分配的连接ID
+    pub connection_id: Option<String>,
+    /// 服务器信息
+    pub server_info: Option<ServerInfo>,
+    /// 心跳间隔（秒）
+    pub heartbeat_interval: Option<u64>,
 }
 
-impl ConnectResponse {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    pub fn create_packet(self) -> Packet<Self> {
-        Packet::new(MessageType::ConnectResponse, self)
-    }
+/// 认证类型
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum AuthType {
+    /// JWT令牌认证
+    JWT,
+    /// 用户名密码认证
+    UserPassword,
+    /// 第三方OAuth认证
+    OAuth,
+    /// 匿名认证
+    Anonymous,
+}
+
+/// 客户端信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ClientInfo {
+    /// 客户端类型
+    pub client_type: String,
+    /// 客户端版本
+    pub version: String,
+    /// 操作系统
+    pub os: String,
+    /// 操作系统版本
+    pub os_version: String,
+    /// 设备型号
+    pub device_model: Option<String>,
+    /// 应用包名
+    pub app_package: Option<String>,
+}
+
+/// 设备信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DeviceInfo {
+    /// 设备ID
+    pub device_id: String,
+    /// 设备名称
+    pub device_name: String,
+    /// 设备类型
+    pub device_type: DeviceType,
+    /// 推送令牌
+    pub push_token: Option<String>,
+    /// 设备指纹
+    pub device_fingerprint: Option<String>,
+}
+
+/// 设备类型
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum DeviceType {
+    Mobile,
+    Desktop,
+    Web,
+    Tablet,
+    IoT,
+    Unknown,
+}
+
+/// 服务器信息
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerInfo {
+    /// 服务器版本
+    pub version: String,
+    /// 服务器名称
+    pub name: String,
+    /// 支持的功能
+    pub features: Vec<String>,
+    /// 最大消息大小
+    pub max_message_size: u64,
+    /// 连接超时时间
+    pub connection_timeout: u64,
+}
+
+/// 断开连接请求
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisconnectRequest {
+    /// 断开原因
+    pub reason: DisconnectReason,
+    /// 附加信息
+    pub message: Option<String>,
+}
+
+/// 断开连接响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DisconnectResponse {
+    /// 确认断开
+    pub acknowledged: bool,
+}
+
+/// 断开连接原因
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DisconnectReason {
+    /// 用户主动断开
+    UserInitiated,
+    /// 服务器关闭
+    ServerShutdown,
+    /// 认证失败
+    AuthenticationFailed,
+    /// 协议错误
+    ProtocolError,
+    /// 超时
+    Timeout,
+    /// 重复连接
+    DuplicateConnection,
+    /// 服务器维护
+    ServerMaintenance,
+}
+
+/// 通用消息包装器
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessagePacket {
+    /// 消息类型
+    pub message_type: String,
+    /// 消息ID
+    pub message_id: Option<String>,
+    /// 时间戳
+    pub timestamp: u64,
+    /// 消息体
+    pub payload: serde_json::Value,
+    /// 扩展头部
+    pub headers: HashMap<String, String>,
+}
+
+/// 错误响应
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorResponse {
+    /// 错误码
+    pub error_code: String,
+    /// 错误信息
+    pub error_message: String,
+    /// 错误详情
+    pub error_details: Option<HashMap<String, String>>,
+    /// 时间戳
+    pub timestamp: u64,
 }
 
 /// 发送消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SendRequest {
     pub setting: MessageSetting,
     pub client_seq: u32,
@@ -176,7 +307,7 @@ impl SendRequest {
 }
 
 /// 发送确认消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SendResponse {
     pub client_seq: u32,
     pub message_id: BigInt,
@@ -195,7 +326,7 @@ impl SendResponse {
 }
 
 /// 接收消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RecvRequest {
     pub setting: MessageSetting,
     pub msg_key: String,
@@ -229,7 +360,7 @@ impl RecvRequest {
 }
 
 /// 接收确认消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RecvResponse {
     pub succeed: bool,
     pub message: Option<String>,
@@ -246,7 +377,7 @@ impl RecvResponse {
 }
 
 /// 心跳消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PingRequest {
     pub timestamp: i64,
 }
@@ -262,7 +393,7 @@ impl PingRequest {
 }
 
 /// 心跳回复消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PongResponse {
     pub timestamp: i64,
 }
@@ -277,25 +408,10 @@ impl PongResponse {
     }
 }
 
-/// 断开连接消息
-#[derive(Debug, Clone, Default)]
-pub struct DisconnectRequest {
-    pub reason_code: u8,
-    pub reason: String,
-}
-
-impl DisconnectRequest {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    pub fn create_packet(self) -> Packet<Self> {
-        Packet::new(MessageType::DisconnectRequest, self)
-    }
-}
+// DisconnectRequest 已在上面定义，删除重复定义
 
 /// 订阅消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SubscribeRequest {
     pub setting: u8,
     pub client_msg_no: String,
@@ -316,7 +432,7 @@ impl SubscribeRequest {
 }
 
 /// 订阅确认消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct SubscribeResponse {
     pub client_msg_no: String,
     pub channel_id: String,
@@ -336,7 +452,7 @@ impl SubscribeResponse {
 }
 
 /// 批量接收消息 - 用于服务器向客户端批量推送消息
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RecvBatchRequest {
     /// 批量消息列表
     pub messages: Vec<RecvRequest>
@@ -379,7 +495,7 @@ impl RecvBatchRequest {
 }
 
 /// 批量接收确认消息（客户端 → 服务端）
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct RecvBatchResponse {
     pub succeed: bool,
     pub message: Option<String>,
@@ -411,41 +527,10 @@ impl RecvBatchResponse {
     }
 }
 
-/// 断开连接确认消息（服务端 → 客户端）
-#[derive(Debug, Clone, Default)]
-pub struct DisconnectResponse {
-    pub succeed: bool,
-    pub message: Option<String>,
-}
-
-impl DisconnectResponse {
-    pub fn new() -> Self {
-        Self::default()
-    }
-    
-    pub fn create_packet(self) -> Packet<Self> {
-        Packet::new(MessageType::DisconnectResponse, self)
-    }
-    
-    /// 创建成功确认
-    pub fn success() -> Self {
-        Self {
-            succeed: true,
-            message: Some("断开连接成功".to_string()),
-        }
-    }
-    
-    /// 创建失败确认
-    pub fn failure(error_msg: &str) -> Self {
-        Self {
-            succeed: false,
-            message: Some(error_msg.to_string()),
-        }
-    }
-}
+// DisconnectResponse 已在上面定义，删除重复定义
 
 /// 频道推送消息（服务端 → 客户端广播）
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PublishRequest {
     pub channel_id: String,        // 频道ID
     pub topic: Option<String>,     // 主题/标签（可选）
@@ -504,7 +589,7 @@ impl PublishRequest {
 }
 
 /// 推送确认消息（客户端 → 服务端）
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PublishResponse {
     pub succeed: bool,
     pub message: Option<String>,

@@ -23,6 +23,25 @@ pub mod message;
 
 pub use message::*;
 
+/// 解码消息的通用函数
+pub fn decode_message<T>(payload: &[u8]) -> Result<T, Box<dyn std::error::Error>>
+where
+    T: serde::de::DeserializeOwned,
+{
+    let json_str = String::from_utf8(payload.to_vec())?;
+    let message: T = serde_json::from_str(&json_str)?;
+    Ok(message)
+}
+
+/// 编码消息的通用函数
+pub fn encode_message<T>(message: &T) -> Result<Vec<u8>, Box<dyn std::error::Error>>
+where
+    T: serde::Serialize,
+{
+    let json_str = serde_json::to_string(message)?;
+    Ok(json_str.into_bytes())
+}
+
 /// 版本信息
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
