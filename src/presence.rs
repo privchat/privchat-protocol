@@ -64,12 +64,9 @@ pub struct SubscribePresenceRequest {
 }
 
 /// 订阅在线状态响应
+/// RPC 层只返回 data 负载；外层 code/message 由 RPC 封装，此处仅保留业务字段
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribePresenceResponse {
-    /// 响应码
-    pub code: i32,
-    /// 响应消息
-    pub message: String,
     /// 初始在线状态（订阅时立即返回）
     pub initial_statuses: HashMap<u64, OnlineStatusInfo>,
 }
@@ -82,13 +79,8 @@ pub struct UnsubscribePresenceRequest {
 }
 
 /// 取消订阅在线状态响应
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnsubscribePresenceResponse {
-    /// 响应码
-    pub code: i32,
-    /// 响应消息
-    pub message: String,
-}
+/// 与 reaction 等一致，data 为裸 bool，成功失败由外层 code 表示
+pub type UnsubscribePresenceResponse = bool;
 
 /// 获取在线状态请求（批量查询）
 #[derive(Debug, Clone, Serialize, Deserialize)]

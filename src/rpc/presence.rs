@@ -10,14 +10,11 @@ pub struct SubscribePresenceRequest {
 }
 
 /// 订阅在线状态响应
-/// 
+///
 /// RPC路由: `presence/subscribe`
+/// Handler 只返回 data 负载；外层 code/message 由 RPC 层封装，此处仅保留业务字段
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribePresenceResponse {
-    /// 响应码（0 成功）
-    pub code: i32,
-    /// 响应消息
-    pub message: String,
     /// 所有用户的初始在线状态
     pub initial_statuses: std::collections::HashMap<u64, OnlineStatusInfo>,
 }
@@ -31,15 +28,10 @@ pub struct UnsubscribePresenceRequest {
 }
 
 /// 取消订阅在线状态响应
-/// 
+///
 /// RPC路由: `presence/unsubscribe`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnsubscribePresenceResponse {
-    /// 响应码（0 成功）
-    pub code: i32,
-    /// 响应消息
-    pub message: String,
-}
+/// 与 reaction 等一致，data 为裸 bool（true/false），成功失败由外层 code 表示
+pub type UnsubscribePresenceResponse = bool;
 
 /// RPC: presence/typing
 /// 发送输入状态通知
