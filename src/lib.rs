@@ -4,31 +4,31 @@
 /// 
 /// 使用示例：
 /// ```
-/// use privchat_protocol::message::*;
+/// use privchat_protocol::protocol::*;
 /// 
 /// fn main() {
-///     // 创建连接消息
 ///     let mut connect_req = AuthorizationRequest::new();
-///     connect_req.uid = "user123".to_string();
-///     connect_req.token = "test_token".to_string();
-///     
-///     // 创建包
+///     connect_req.auth_token = "test_token".to_string();
 ///     let packet = connect_req.create_packet();
 ///     println!("消息类型: {:?}", packet.message_type);
 /// }
 /// ```
 
 // 导出主要模块
+pub mod protocol;
 pub mod message;
 pub mod rpc;
 pub mod presence;
 pub mod notification;
 pub mod error_code;
+pub mod version;
 
+pub use protocol::*;
 pub use message::*;
 pub use presence::*;
 pub use notification::*;
 pub use error_code::ErrorCode;
+pub use version::{VERSION, PROTOCOL_VERSION};
 
 /// 解码消息的通用函数
 pub fn decode_message<T>(payload: &[u8]) -> Result<T, Box<dyn std::error::Error>>
@@ -48,12 +48,6 @@ where
     let json_str = serde_json::to_string(message)?;
     Ok(json_str.into_bytes())
 }
-
-/// 版本信息
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-/// 支持的协议版本
-pub const PROTOCOL_VERSION: u8 = 1;
 
 #[cfg(test)]
 mod tests {

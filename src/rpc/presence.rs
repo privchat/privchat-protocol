@@ -14,6 +14,10 @@ pub struct SubscribePresenceRequest {
 /// RPC路由: `presence/subscribe`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SubscribePresenceResponse {
+    /// 响应码（0 成功）
+    pub code: i32,
+    /// 响应消息
+    pub message: String,
     /// 所有用户的初始在线状态
     pub initial_statuses: std::collections::HashMap<u64, OnlineStatusInfo>,
 }
@@ -29,8 +33,13 @@ pub struct UnsubscribePresenceRequest {
 /// 取消订阅在线状态响应
 /// 
 /// RPC路由: `presence/unsubscribe`
-/// 简单操作，返回 true（成功/失败由协议层 code 处理）
-pub type UnsubscribePresenceResponse = bool;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnsubscribePresenceResponse {
+    /// 响应码（0 成功）
+    pub code: i32,
+    /// 响应消息
+    pub message: String,
+}
 
 /// RPC: presence/typing
 /// 发送输入状态通知

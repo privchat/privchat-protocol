@@ -1,4 +1,4 @@
-use privchat_protocol::message::*;
+use privchat_protocol::protocol::*;
 use num_bigint::BigInt;
 
 fn main() {
@@ -32,12 +32,13 @@ fn main() {
     let send_req = SendMessageRequest {
         setting: MessageSetting { need_receipt: true, signal: 0 },
         client_seq: 1,
-        local_message_id: "msg_001".to_string(),
+        local_message_id: 0,
         stream_no: "stream_001".to_string(),
-        channel_id: "channel_123".to_string(),
+        channel_id: 456,
         channel_type: 1,
+        message_type: 0, // ContentMessageType::Text
         expire: 3600,
-        from_uid: "user_123".to_string(),
+        from_uid: 123,
         topic: "chat".to_string(),
         payload: "Hello, World!".as_bytes().to_vec(),
     };
@@ -57,18 +58,19 @@ fn main() {
     let recv_req = PushMessageRequest {
         setting: MessageSetting { need_receipt: true, signal: 0 },
         msg_key: "msg_key_001".to_string(),
-        server_message_id: BigInt::from(999),
+        server_message_id: 999,
         message_seq: 1,
-        local_message_id: "msg_001".to_string(),
+        local_message_id: 0,
         stream_no: "stream_001".to_string(),
         stream_seq: 1,
         stream_flag: 0,
         timestamp: 1234567890,
-        channel_id: "channel_123".to_string(),
+        channel_id: 789,
         channel_type: 1,
+        message_type: 0, // ContentMessageType::Text
         expire: 3600,
         topic: "chat".to_string(),
-        from_uid: "user_456".to_string(),
+        from_uid: 456,
         payload: "Hello back!".as_bytes().to_vec(),
     };
     

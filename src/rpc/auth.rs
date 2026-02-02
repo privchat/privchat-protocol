@@ -1,7 +1,7 @@
 /// 认证相关 RPC
 
 use serde::{Deserialize, Serialize};
-use crate::message::DeviceInfo;
+use crate::protocol::DeviceInfo;
 
 /// 登录请求
 /// 
