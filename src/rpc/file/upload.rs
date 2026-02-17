@@ -1,9 +1,8 @@
 /// 文件上传相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 请求上传令牌请求
-/// 
+///
 /// RPC路由: `file/request_upload_token`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRequestUploadTokenRequest {
@@ -23,7 +22,7 @@ pub struct FileRequestUploadTokenRequest {
 }
 
 /// 上传回调请求
-/// 
+///
 /// RPC路由: `file/upload_callback`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileUploadCallbackRequest {
@@ -36,7 +35,7 @@ pub struct FileUploadCallbackRequest {
 }
 
 /// 请求上传令牌响应
-/// 
+///
 /// RPC路由: `file/request_upload_token`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRequestUploadTokenResponse {
@@ -46,7 +45,7 @@ pub struct FileRequestUploadTokenResponse {
 }
 
 /// 上传回调响应
-/// 
+///
 /// RPC路由: `file/upload_callback`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type FileUploadCallbackResponse = bool;

@@ -1,9 +1,33 @@
 /// 群组设置相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 更新群组设置请求
-/// 
+///
+/// RPC路由: `group/settings/update`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSettingsPatch {
+    /// 是否开启加群审批（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_need_approval: Option<bool>,
+    /// 成员是否可邀请（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_can_invite: Option<bool>,
+    /// 是否全员禁言（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub all_muted: Option<bool>,
+    /// 最大成员数（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_members: Option<u32>,
+    /// 群公告（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub announcement: Option<String>,
+    /// 群描述（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+/// 更新群组设置请求
+///
 /// RPC路由: `group/settings/update`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSettingsUpdateRequest {
@@ -11,19 +35,12 @@ pub struct GroupSettingsUpdateRequest {
     pub group_id: u64,
     /// 操作者ID
     pub operator_id: u64,
-    /// 群组名称（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-    /// 群组描述（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub description: Option<String>,
-    /// 群组头像URL（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<String>,
+    /// 更新项
+    pub settings: GroupSettingsPatch,
 }
 
 /// 获取群组设置请求
-/// 
+///
 /// RPC路由: `group/settings/get`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSettingsGetRequest {
@@ -34,7 +51,7 @@ pub struct GroupSettingsGetRequest {
 }
 
 /// 全员禁言请求
-/// 
+///
 /// RPC路由: `group/settings/mute_all`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupMuteAllRequest {
@@ -43,19 +60,57 @@ pub struct GroupMuteAllRequest {
     /// 操作者ID
     pub operator_id: u64,
     /// 是否全员禁言
-    pub mute_all: bool,
+    #[serde(alias = "mute_all")]
+    pub muted: bool,
 }
 
 /// 更新群组设置响应
-/// 
+///
 /// RPC路由: `group/settings/update`
-/// 简单操作，返回 true（成功/失败由协议层 code 处理）
-pub type GroupSettingsUpdateResponse = bool;
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSettingsUpdateResponse {
+    pub success: bool,
+    pub group_id: String,
+    pub message: String,
+    pub updated_count: u32,
+    pub updated_at: String,
+}
 
 /// 获取群组设置响应
-/// 
+///
+/// RPC路由: `group/settings/get`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupSettingsData {
+    pub join_need_approval: bool,
+    pub member_can_invite: bool,
+    pub all_muted: bool,
+    pub max_members: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub announcement: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+/// 获取群组设置响应
+///
 /// RPC路由: `group/settings/get`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupSettingsGetResponse {
-    pub settings: serde_json::Value,  // 或者定义具体的 Settings 结构
+    pub group_id: u64,
+    pub settings: GroupSettingsData,
+}
+
+/// 全员禁言响应
+///
+/// RPC路由: `group/settings/mute_all`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupMuteAllResponse {
+    pub success: bool,
+    pub group_id: String,
+    pub all_muted: bool,
+    pub message: String,
+    pub operator_id: String,
+    pub updated_at: String,
 }

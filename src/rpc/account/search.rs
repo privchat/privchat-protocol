@@ -1,9 +1,8 @@
 /// 账号搜索相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 搜索用户请求
-/// 
+///
 /// RPC路由: `account/search/query`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountSearchQueryRequest {
@@ -15,14 +14,14 @@ pub struct AccountSearchQueryRequest {
     /// 每页数量（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub page_size: Option<u32>,
-    
+
     /// 搜索发起者ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub from_user_id: u64,
 }
 
 /// 通过二维码搜索用户请求
-/// 
+///
 /// RPC路由: `account/search/by_qrcode`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccountSearchByQRCodeRequest {
@@ -31,7 +30,7 @@ pub struct AccountSearchByQRCodeRequest {
     /// Token（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
-    
+
     /// 搜索发起者ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub searcher_id: u64,

@@ -77,6 +77,7 @@ impl ContentMessageType {
 /// 消息来源（非好友消息时使用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageSource {
+    #[serde(rename = "type")]
     pub source_type: String, // "search" | "group" | "card_share" | "qrcode" | "phone"
     pub source_id: String,
 }
@@ -85,6 +86,7 @@ pub struct MessageSource {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MessagePayloadEnvelope {
     /// 消息显示内容
+    #[serde(default)]
     pub content: String,
     /// 类型相关元数据，按 ContentMessageType 解析为对应 *Metadata 结构体
     pub metadata: Option<serde_json::Value>,

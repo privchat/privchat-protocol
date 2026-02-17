@@ -1,13 +1,13 @@
 /// PrivChat IM Error Code v3.0
-/// 
+///
 /// Error code design (priority-based):
 /// - 0: Success
 /// - 1-999: System errors (protocol, version, runtime stability) ⭐ First priority
 /// - 10000-19999: Common errors (authentication, parameters, permissions, rate limiting)
 /// - 20000-65535: Business errors (freely defined, allocated as needed)
-/// 
+///
 /// Design principles: Simple and practical, flexible extension, within 65535 (u16 range)
-/// 
+///
 /// **Important**: Error codes cannot be changed once published. New error codes must use new values.
 
 #[repr(u32)]
@@ -16,9 +16,9 @@ pub enum ErrorCode {
     // ==================== Success ====================
     /// Operation successful
     Ok = 0,
-    
+
     // ==================== System Errors (1-999) ⭐ First Priority ====================
-    
+
     // System Runtime (1-99)
     /// System error
     SystemError = 1,
@@ -38,7 +38,7 @@ pub enum ErrorCode {
     CacheError = 8,
     /// Network error
     NetworkError = 9,
-    
+
     // Protocol Related (100-199)
     /// Protocol error
     ProtocolError = 100,
@@ -52,7 +52,7 @@ pub enum ErrorCode {
     EncodingError = 104,
     /// Decoding error
     DecodingError = 105,
-    
+
     // Version Compatibility (200-299)
     /// Version error
     VersionError = 200,
@@ -64,10 +64,10 @@ pub enum ErrorCode {
     IncompatibleVersion = 203,
     /// API deprecated
     DeprecatedApi = 204,
-    
+
     // ==================== Common Errors (10000-19999) ====================
     // Every 100 codes per segment
-    
+
     // Authentication/Authorization (10000-10099)
     /// Authentication required
     AuthRequired = 10000,
@@ -87,7 +87,7 @@ pub enum ErrorCode {
     UserBanned = 10007,
     /// IP address not allowed
     IpNotAllowed = 10008,
-    
+
     // Request Parameters (10100-10199)
     /// Invalid parameters
     InvalidParams = 10100,
@@ -103,7 +103,7 @@ pub enum ErrorCode {
     InvalidJson = 10105,
     /// Payload too large
     PayloadTooLarge = 10106,
-    
+
     // Business Rules (10200-10299)
     /// Operation not allowed
     OperationNotAllowed = 10200,
@@ -117,7 +117,7 @@ pub enum ErrorCode {
     DuplicateOperation = 10204,
     /// Operation conflict
     OperationConflict = 10205,
-    
+
     // Rate Limiting (10300-10399)
     /// Rate limit exceeded
     RateLimitExceeded = 10300,
@@ -127,10 +127,10 @@ pub enum ErrorCode {
     MonthlyQuotaExceeded = 10302,
     /// Concurrent limit exceeded
     ConcurrentLimitExceeded = 10303,
-    
+
     // ==================== Business Errors (20000-65535) ====================
     // Every 100 codes per segment, starting from 20000
-    
+
     // Message Basics (20000-20099)
     /// Message not found
     MessageNotFound = 20000,
@@ -152,13 +152,13 @@ pub enum ErrorCode {
     MessageAlreadyRead = 20008,
     /// Send message too fast
     SendMessageTooFast = 20009,
-    
+
     // Offline Messages (20100-20199)
     /// Offline message queue full
     OfflineMessageFull = 20100,
     /// Offline message expired
     OfflineMessageExpired = 20101,
-    
+
     // User Basics (20200-20299)
     /// User not found
     UserNotFound = 20200,
@@ -174,7 +174,7 @@ pub enum ErrorCode {
     NicknameInvalid = 20205,
     /// Invalid avatar
     AvatarInvalid = 20206,
-    
+
     // Group Basics (20300-20399)
     /// Group not found
     GroupNotFound = 20300,
@@ -198,7 +198,7 @@ pub enum ErrorCode {
     CannotRemoveOwner = 20309,
     /// Join approval required
     JoinApprovalRequired = 20310,
-    
+
     // Friend Basics (20400-20499)
     /// Friend not found
     FriendNotFound = 20400,
@@ -208,7 +208,9 @@ pub enum ErrorCode {
     BlockedByUser = 20402,
     /// User in blacklist
     UserInBlacklist = 20403,
-    
+    /// Friend request expired
+    FriendRequestExpired = 20404,
+
     // Channel Basics (20500-20599)
     /// Channel not found
     ChannelNotFound = 20500,
@@ -216,7 +218,7 @@ pub enum ErrorCode {
     ChannelDeleted = 20501,
     /// Channel muted
     ChannelMuted = 20502,
-    
+
     // File Basics (20600-20699)
     /// File not found
     FileNotFound = 20600,
@@ -232,7 +234,7 @@ pub enum ErrorCode {
     UploadTokenExpired = 20605,
     /// Storage quota exceeded
     StorageQuotaExceeded = 20606,
-    
+
     // QR Code (20700-20799)
     /// QR code not found
     QRCodeNotFound = 20700,
@@ -244,7 +246,7 @@ pub enum ErrorCode {
     QRCodeRevoked = 20703,
     /// QR code limit exceeded
     QRCodeLimitExceeded = 20704,
-    
+
     // Device (20800-20899)
     /// Device not found
     DeviceNotFound = 20800,
@@ -259,13 +261,13 @@ impl ErrorCode {
     pub fn code(&self) -> u32 {
         *self as u32
     }
-    
+
     /// Get the error code message
     pub fn message(&self) -> &'static str {
         match self {
             // Success
             Self::Ok => "Operation successful",
-            
+
             // System Errors (1-999)
             Self::SystemError => "System error",
             Self::SystemBusy => "System busy, please retry later",
@@ -287,7 +289,7 @@ impl ErrorCode {
             Self::ClientVersionTooNew => "Client version too new",
             Self::IncompatibleVersion => "Incompatible version",
             Self::DeprecatedApi => "API deprecated",
-            
+
             // Common Errors (10000-19999)
             Self::AuthRequired => "Authentication required",
             Self::InvalidToken => "Invalid token",
@@ -315,7 +317,7 @@ impl ErrorCode {
             Self::DailyQuotaExceeded => "Daily quota exceeded",
             Self::MonthlyQuotaExceeded => "Monthly quota exceeded",
             Self::ConcurrentLimitExceeded => "Concurrent limit exceeded",
-            
+
             // Business Errors (20000-65535)
             Self::MessageNotFound => "Message not found",
             Self::MessageDeleted => "Message deleted",
@@ -351,6 +353,7 @@ impl ErrorCode {
             Self::AlreadyFriends => "Already friends",
             Self::BlockedByUser => "Blocked by user",
             Self::UserInBlacklist => "User in blacklist",
+            Self::FriendRequestExpired => "Friend request expired",
             Self::ChannelNotFound => "Channel not found",
             Self::ChannelDeleted => "Channel deleted",
             Self::ChannelMuted => "Channel muted",
@@ -371,13 +374,13 @@ impl ErrorCode {
             Self::DeviceNotVerified => "Device not verified",
         }
     }
-    
+
     /// Convert from u32 to ErrorCode
     pub fn from_code(code: u32) -> Option<Self> {
         match code {
             // Success
             0 => Some(Self::Ok),
-            
+
             // System errors (1-999)
             1 => Some(Self::SystemError),
             2 => Some(Self::SystemBusy),
@@ -399,7 +402,7 @@ impl ErrorCode {
             202 => Some(Self::ClientVersionTooNew),
             203 => Some(Self::IncompatibleVersion),
             204 => Some(Self::DeprecatedApi),
-            
+
             // Common errors (10000-19999)
             10000 => Some(Self::AuthRequired),
             10001 => Some(Self::InvalidToken),
@@ -427,7 +430,7 @@ impl ErrorCode {
             10301 => Some(Self::DailyQuotaExceeded),
             10302 => Some(Self::MonthlyQuotaExceeded),
             10303 => Some(Self::ConcurrentLimitExceeded),
-            
+
             // Business errors (20000-65535)
             20000 => Some(Self::MessageNotFound),
             20001 => Some(Self::MessageDeleted),
@@ -463,6 +466,7 @@ impl ErrorCode {
             20401 => Some(Self::AlreadyFriends),
             20402 => Some(Self::BlockedByUser),
             20403 => Some(Self::UserInBlacklist),
+            20404 => Some(Self::FriendRequestExpired),
             20500 => Some(Self::ChannelNotFound),
             20501 => Some(Self::ChannelDeleted),
             20502 => Some(Self::ChannelMuted),
@@ -481,23 +485,23 @@ impl ErrorCode {
             20800 => Some(Self::DeviceNotFound),
             20801 => Some(Self::DeviceLimitExceeded),
             20802 => Some(Self::DeviceNotVerified),
-            
+
             _ => None,
         }
     }
-    
+
     /// Check if this is a system error (first priority)
     pub fn is_system_error(&self) -> bool {
         let code = self.code();
         code >= 1 && code < 1000
     }
-    
+
     /// Check if this is a common error
     pub fn is_common_error(&self) -> bool {
         let code = self.code();
         code >= 10000 && code < 20000
     }
-    
+
     /// Check if this is a business error
     pub fn is_business_error(&self) -> bool {
         let code = self.code();
@@ -524,17 +528,17 @@ mod tests {
     #[test]
     fn test_error_code_values() {
         assert_eq!(ErrorCode::Ok.code(), 0);
-        
+
         // System errors (1-999)
         assert_eq!(ErrorCode::SystemBusy.code(), 2);
         assert_eq!(ErrorCode::ProtocolError.code(), 100);
         assert_eq!(ErrorCode::ClientVersionTooOld.code(), 201);
-        
+
         // Common errors (10000-19999)
         assert_eq!(ErrorCode::AuthRequired.code(), 10000);
         assert_eq!(ErrorCode::InvalidParams.code(), 10100);
         assert_eq!(ErrorCode::RateLimitExceeded.code(), 10300);
-        
+
         // Business errors (20000+)
         assert_eq!(ErrorCode::MessageNotFound.code(), 20000);
         assert_eq!(ErrorCode::OfflineMessageFull.code(), 20100);
@@ -547,7 +551,10 @@ mod tests {
     #[test]
     fn test_error_code_messages() {
         assert_eq!(ErrorCode::Ok.message(), "Operation successful");
-        assert_eq!(ErrorCode::SystemBusy.message(), "System busy, please retry later");
+        assert_eq!(
+            ErrorCode::SystemBusy.message(),
+            "System busy, please retry later"
+        );
         assert_eq!(ErrorCode::AuthRequired.message(), "Authentication required");
         assert_eq!(ErrorCode::MessageNotFound.message(), "Message not found");
     }
@@ -558,12 +565,12 @@ mod tests {
         assert!(ErrorCode::SystemBusy.is_system_error());
         assert!(!ErrorCode::SystemBusy.is_common_error());
         assert!(!ErrorCode::SystemBusy.is_business_error());
-        
+
         // Common errors
         assert!(!ErrorCode::AuthRequired.is_system_error());
         assert!(ErrorCode::AuthRequired.is_common_error());
         assert!(!ErrorCode::AuthRequired.is_business_error());
-        
+
         // Business errors
         assert!(!ErrorCode::MessageNotFound.is_system_error());
         assert!(!ErrorCode::MessageNotFound.is_common_error());
@@ -576,7 +583,10 @@ mod tests {
         assert_eq!(ErrorCode::from_code(2), Some(ErrorCode::SystemBusy));
         assert_eq!(ErrorCode::from_code(10000), Some(ErrorCode::AuthRequired));
         assert_eq!(ErrorCode::from_code(10100), Some(ErrorCode::InvalidParams));
-        assert_eq!(ErrorCode::from_code(20000), Some(ErrorCode::MessageNotFound));
+        assert_eq!(
+            ErrorCode::from_code(20000),
+            Some(ErrorCode::MessageNotFound)
+        );
         assert_eq!(ErrorCode::from_code(99999), None);
     }
 
@@ -584,10 +594,10 @@ mod tests {
     fn test_error_code_display() {
         let err = ErrorCode::AuthRequired;
         assert_eq!(err.to_string(), "[10000] Authentication required");
-        
+
         let err = ErrorCode::SystemBusy;
         assert_eq!(err.to_string(), "[2] System busy, please retry later");
-        
+
         let err = ErrorCode::GroupNotFound;
         assert_eq!(err.to_string(), "[20300] Group not found");
     }

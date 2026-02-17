@@ -1,9 +1,8 @@
 /// 群组基本操作 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 创建群组请求
-/// 
+///
 /// RPC路由: `group/group/create`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupCreateRequest {
@@ -15,27 +14,27 @@ pub struct GroupCreateRequest {
     /// 初始成员ID列表（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member_ids: Option<Vec<u64>>,
-    
+
     /// 创建者ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub creator_id: u64,
 }
 
 /// 获取群组信息请求
-/// 
+///
 /// RPC路由: `group/group/info`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupInfoRequest {
     /// 群组ID
     pub group_id: u64,
-    
+
     /// 用户ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 创建群组响应
-/// 
+///
 /// RPC路由: `group/group/create`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupCreateResponse {
@@ -43,12 +42,12 @@ pub struct GroupCreateResponse {
     pub name: String,
     pub description: Option<String>,
     pub member_count: u32,
-    pub created_at: String,  // ISO 8601
+    pub created_at: String, // ISO 8601
     pub creator_id: u64,
 }
 
 /// 获取群组信息响应
-/// 
+///
 /// RPC路由: `group/group/info`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupInfoResponse {
@@ -65,4 +64,3 @@ pub struct GroupInfoResponse {
     pub tags: Option<serde_json::Value>,
     pub custom_fields: Option<serde_json::Value>,
 }
-

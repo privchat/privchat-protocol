@@ -1,143 +1,134 @@
 /// 二维码相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 生成二维码请求
-/// 
+///
 /// RPC路由: `qrcode/generate`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeGenerateRequest {
     /// 二维码类型（user, group, auth, feature）
     pub qr_type: String,
-    
-    /// 目标ID
+    /// 目标 ID（用户ID/群组ID/会话ID）
     pub target_id: String,
-    
-    /// 过期时间（秒）（可选）
+    /// 过期时间（秒）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expire_seconds: Option<u64>,
-    
-    /// 最大使用次数（可选）
+    /// 最大使用次数
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_usage: Option<u32>,
-    
-    /// 额外元数据（可选）
+    /// 额外元数据
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
-    
-    /// 用户ID（服务器端填充，客户端不可设置）
+    /// 用户 ID（服务器端填充）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 解析二维码请求
-/// 
+///
 /// RPC路由: `qrcode/resolve`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeResolveRequest {
-    /// QR Key
     pub qr_key: String,
-    
-    /// Token（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<String>,
-    
-    /// 扫描者ID（服务器端填充，客户端不可设置）
+    /// 扫描者 ID（服务器端填充）
     #[serde(skip_deserializing, default)]
     pub scanner_id: u64,
 }
 
 /// 刷新二维码请求
-/// 
+///
 /// RPC路由: `qrcode/refresh`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeRefreshRequest {
-    /// 旧的 QR Key
-    pub old_qr_key: String,
-    
-    /// 用户ID（服务器端填充，客户端不可设置）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
+    pub qr_type: String,
+    pub target_id: String,
+    pub creator_id: String,
 }
 
 /// 撤销二维码请求
-/// 
+///
 /// RPC路由: `qrcode/revoke`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeRevokeRequest {
-    /// QR Key
     pub qr_key: String,
-    
-    /// 用户ID（服务器端填充，客户端不可设置）
+    /// 用户 ID（服务器端填充）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 获取二维码列表请求
-/// 
+///
 /// RPC路由: `qrcode/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeListRequest {
-    /// 二维码类型过滤（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub qr_type: Option<String>,
-    
-    /// 用户ID（服务器端填充，客户端不可设置）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
+    pub creator_id: String,
+    #[serde(default)]
+    pub include_revoked: bool,
 }
 
 /// 生成用户二维码请求
-/// 
+///
 /// RPC路由: `user/qrcode/generate`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserQRCodeGenerateRequest {
-    /// 过期时间（秒）（可选）
+    /// 过期时间（秒）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expire_seconds: Option<u64>,
-    
-    /// 用户ID（服务器端填充，客户端不可设置）
+    /// 用户ID（服务器端填充）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 刷新用户二维码请求
-/// 
+///
 /// RPC路由: `user/qrcode/refresh`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserQRCodeRefreshRequest {
-    /// 用户ID（服务器端填充，客户端不可设置）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
+    pub user_id: String,
 }
 
 /// 获取用户二维码请求
-/// 
+///
 /// RPC路由: `user/qrcode/get`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UserQRCodeGetRequest {
-    /// 用户ID（服务器端填充，客户端不可设置）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
+    pub user_id: String,
+}
+
+/// 二维码条目
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QRCodeEntry {
+    pub qr_key: String,
+    pub qr_code: String,
+    pub qr_type: String,
+    pub target_id: String,
+    pub created_at: String,
+    pub expire_at: Option<String>,
+    pub used_count: u32,
+    pub max_usage: Option<u32>,
+    #[serde(default)]
+    pub revoked: bool,
 }
 
 /// 生成二维码响应
-/// 
+///
 /// RPC路由: `qrcode/generate`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeGenerateResponse {
     pub qr_key: String,
-    pub qr_code: String,  // privchat://...
+    pub qr_code: String,
     pub qr_type: String,
     pub target_id: u64,
-    pub created_at: String,  // ISO 8601
-    pub expire_at: Option<String>,  // ISO 8601
+    pub created_at: String,
+    pub expire_at: Option<String>,
     pub max_usage: Option<u32>,
     pub used_count: u32,
 }
 
 /// 解析二维码响应
-/// 
+///
 /// RPC路由: `qrcode/resolve`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QRCodeResolveResponse {
@@ -147,5 +138,61 @@ pub struct QRCodeResolveResponse {
     pub data: Option<serde_json::Value>,
     pub used_count: u32,
     pub max_usage: Option<u32>,
-    pub expire_at: Option<String>,  // ISO 8601
+    pub expire_at: Option<String>,
+}
+
+/// 刷新二维码响应
+///
+/// RPC路由: `qrcode/refresh`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QRCodeRefreshResponse {
+    pub old_qr_key: String,
+    pub new_qr_key: String,
+    pub new_qr_code: String,
+    pub revoked_at: String,
+}
+
+/// 撤销二维码响应
+///
+/// RPC路由: `qrcode/revoke`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QRCodeRevokeResponse {
+    pub success: bool,
+    pub qr_key: String,
+    pub revoked_at: String,
+}
+
+/// 获取二维码列表响应
+///
+/// RPC路由: `qrcode/list`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct QRCodeListResponse {
+    pub qr_keys: Vec<QRCodeEntry>,
+    pub total: usize,
+}
+
+/// 生成用户二维码响应
+///
+/// RPC路由: `user/qrcode/generate`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserQRCodeGenerateResponse {
+    pub qr_key: String,
+    pub qr_code: String,
+    pub created_at: String,
+}
+
+/// 刷新用户二维码响应
+///
+/// RPC路由: `user/qrcode/refresh`
+pub type UserQRCodeRefreshResponse = QRCodeRefreshResponse;
+
+/// 获取用户二维码响应
+///
+/// RPC路由: `user/qrcode/get`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserQRCodeGetResponse {
+    pub qr_key: String,
+    pub qr_code: String,
+    pub created_at: String,
+    pub used_count: u32,
 }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::Debug;
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// 消息基础trait
 pub trait Message: Debug + Send + Sync {
@@ -103,10 +103,7 @@ pub struct Packet<T: Message> {
 
 impl<T: Message> Packet<T> {
     pub fn new(message_type: MessageType, body: T) -> Self {
-        Self {
-            message_type,
-            body,
-        }
+        Self { message_type, body }
     }
 }
 
@@ -157,7 +154,7 @@ impl AuthorizationRequest {
             properties: HashMap::new(),
         }
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::AuthorizationRequest, self)
     }
@@ -266,7 +263,7 @@ impl DeviceType {
             DeviceType::Unknown => "unknown",
         }
     }
-    
+
     pub fn from_str(s: &str) -> Self {
         match s.to_lowercase().as_str() {
             "ios" => DeviceType::iOS,
@@ -343,7 +340,6 @@ pub struct SendMessageRequest {
     pub local_message_id: u64,
     pub stream_no: String,
     pub channel_id: u64,
-    pub channel_type: u8,
     pub message_type: u32,
     pub expire: u32,
     pub from_uid: u64,
@@ -355,13 +351,16 @@ impl SendMessageRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::SendMessageRequest, self)
     }
-    
+
     pub fn verify_string(&self) -> String {
-        format!("{}:{}:{}", self.local_message_id, self.channel_id, self.from_uid)
+        format!(
+            "{}:{}:{}",
+            self.local_message_id, self.channel_id, self.from_uid
+        )
     }
 }
 
@@ -371,14 +370,14 @@ pub struct SendMessageResponse {
     pub client_seq: u32,
     pub server_message_id: u64,
     pub message_seq: u32,
-    pub reason_code: u8,
+    pub reason_code: u32,
 }
 
 impl SendMessageResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::SendMessageResponse, self)
     }
@@ -409,13 +408,16 @@ impl PushMessageRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PushMessageRequest, self)
     }
-    
+
     pub fn verify_string(&self) -> String {
-        format!("{}:{}:{}", self.server_message_id, self.channel_id, self.from_uid)
+        format!(
+            "{}:{}:{}",
+            self.server_message_id, self.channel_id, self.from_uid
+        )
     }
 }
 
@@ -430,7 +432,7 @@ impl PushMessageResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PushMessageResponse, self)
     }
@@ -446,7 +448,7 @@ impl PingRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PingRequest, self)
     }
@@ -462,7 +464,7 @@ impl PongResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PongResponse, self)
     }
@@ -483,7 +485,7 @@ impl SubscribeRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::SubscribeRequest, self)
     }
@@ -503,7 +505,7 @@ impl SubscribeResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::SubscribeResponse, self)
     }
@@ -512,30 +514,30 @@ impl SubscribeResponse {
 /// 批量接收消息
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PushBatchRequest {
-    pub messages: Vec<PushMessageRequest>
+    pub messages: Vec<PushMessageRequest>,
 }
 
 impl PushBatchRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PushBatchRequest, self)
     }
-    
+
     pub fn single_batch(messages: Vec<PushMessageRequest>) -> Self {
         Self { messages }
     }
-    
+
     pub fn multi_batch(messages: Vec<PushMessageRequest>) -> Self {
         Self { messages }
     }
-    
+
     pub fn message_count(&self) -> usize {
         self.messages.len()
     }
-    
+
     pub fn is_empty(&self) -> bool {
         self.messages.is_empty()
     }
@@ -552,18 +554,18 @@ impl PushBatchResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PushBatchResponse, self)
     }
-    
+
     pub fn success() -> Self {
         Self {
             succeed: true,
             message: Some("批量消息接收成功".to_string()),
         }
     }
-    
+
     pub fn failure(error_msg: &str) -> Self {
         Self {
             succeed: false,
@@ -587,11 +589,11 @@ impl PublishRequest {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PublishRequest, self)
     }
-    
+
     pub fn system_push(channel_id: u64, payload: Vec<u8>) -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
         let timestamp = SystemTime::now()
@@ -608,7 +610,7 @@ impl PublishRequest {
             server_message_id: Some(server_message_id),
         }
     }
-    
+
     pub fn topic_push(channel_id: u64, topic: &str, payload: Vec<u8>) -> Self {
         use std::time::{SystemTime, UNIX_EPOCH};
         let timestamp = SystemTime::now()
@@ -638,18 +640,18 @@ impl PublishResponse {
     pub fn new() -> Self {
         Self::default()
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::PublishResponse, self)
     }
-    
+
     pub fn success() -> Self {
         Self {
             succeed: true,
             message: Some("推送消息接收成功".to_string()),
         }
     }
-    
+
     pub fn failure(error_msg: &str) -> Self {
         Self {
             succeed: false,
@@ -818,7 +820,7 @@ impl DisconnectResponse {
             acknowledged: false,
         }
     }
-    
+
     pub fn create_packet(self) -> Packet<Self> {
         Packet::new(MessageType::DisconnectResponse, self)
     }
@@ -863,31 +865,31 @@ mod tests {
         let connect_msg = AuthorizationRequest::new();
         let packet = connect_msg.create_packet();
         assert_eq!(packet.message_type, MessageType::AuthorizationRequest);
-        
+
         let send_msg = SendMessageRequest::new();
         let packet = send_msg.create_packet();
         assert_eq!(packet.message_type, MessageType::SendMessageRequest);
     }
-    
+
     #[test]
     fn test_message_types() {
         assert_eq!(MessageType::AuthorizationRequest as u8, 1);
         assert_eq!(MessageType::SendMessageRequest as u8, 5);
         assert_eq!(MessageType::PushMessageRequest as u8, 7);
     }
-    
+
     #[test]
     fn test_message_type_conversion() {
         assert_eq!(MessageType::from(1u8), MessageType::AuthorizationRequest);
         assert_eq!(u8::from(MessageType::AuthorizationRequest), 1);
     }
-    
+
     #[test]
     fn test_message_setting() {
         let setting = MessageSetting::new();
         assert_eq!(setting.need_receipt, false);
     }
-    
+
     #[test]
     fn test_batch_message() {
         let mut messages = Vec::new();
@@ -902,19 +904,19 @@ mod tests {
         let batch_msg = PushBatchRequest::single_batch(messages);
         assert_eq!(batch_msg.message_count(), 3);
     }
-    
+
     #[test]
     fn test_publish_message() {
         let system_msg = PublishRequest::system_push(12345, "系统通知内容".as_bytes().to_vec());
         assert_eq!(system_msg.channel_id, 12345);
     }
-    
+
     #[test]
     fn test_disconnect_ack_message() {
         let disconnect_ack = DisconnectResponse { acknowledged: true };
         assert_eq!(disconnect_ack.acknowledged, true);
     }
-    
+
     #[test]
     fn test_recv_batch_ack_message() {
         let batch_ack = PushBatchResponse::success();

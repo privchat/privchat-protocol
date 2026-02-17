@@ -1,73 +1,88 @@
 /// pts-Based 同步协议
-/// 
+///
 /// 设计原则：
 /// - pts（per-channel monotonic）为权威顺序
 /// - local_message_id 用于幂等和关联
 /// - 服务器是唯一仲裁方
-
 use serde::{Deserialize, Serialize};
+
+// ============================================================
+// SessionReady - 客户端声明已完成 bootstrap
+// ============================================================
+
+/// 会话 ready 请求
+///
+/// RPC 路由: `sync/session_ready`
+/// 语义：客户端 bootstrap sync 已完成，服务端可开始补差+实时推送
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SessionReadyRequest {}
+
+/// 会话 ready 响应
+///
+/// RPC 路由: `sync/session_ready`
+pub type SessionReadyResponse = bool;
 
 // ============================================================
 // ClientSubmit - 客户端提交命令
 // ============================================================
 
 /// 客户端提交请求
-/// 
+///
 /// RPC路由: `sync/submit`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientSubmitRequest {
     /// 客户端消息号（Snowflake u64，用于幂等）
     pub local_message_id: u64,
-    
+
     /// 频道 ID
     pub channel_id: u64,
-    
+
     /// 频道类型（1=私聊，2=群聊）
     pub channel_type: u8,
-    
+
     /// 客户端已知的最后 pts（用于间隙检测）
     pub last_pts: u64,
-    
+
     /// 命令类型
     pub command_type: String,
-    
+
     /// 命令负载（JSON）
     pub payload: serde_json::Value,
-    
+
     /// 客户端时间戳（毫秒）
     pub client_timestamp: i64,
-    
+
     /// 设备 ID（可选，用于多设备去重）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_id: Option<String>,
 }
 
 /// 服务器提交响应
-/// 
+///
 /// RPC路由: `sync/submit`
 /// 注意：如果 decision 是 Rejected，SDK 层会返回错误，不会反序列化这个结构
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ClientSubmitResponse {
     /// 服务器决策
     pub decision: ServerDecision,
-    
+
     /// 分配的 pts（如果 accepted/transformed）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pts: Option<u64>,
-    
+
     /// 服务器消息 ID（如果 accepted/transformed）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub server_msg_id: Option<u64>,
-    
+
     /// 服务器时间戳
     pub server_timestamp: i64,
-    
+
     /// 关联的 local_message_id
     pub local_message_id: u64,
-    
+
     /// 是否需要补齐（has_gap）
     pub has_gap: bool,
-    
+
     /// 服务器当前最新 pts
     pub current_pts: u64,
 }
@@ -95,35 +110,35 @@ pub enum ServerDecision {
 // ============================================================
 
 /// 获取差异请求
-/// 
+///
 /// RPC路由: `sync/get_difference`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetDifferenceRequest {
     /// 频道 ID
     pub channel_id: u64,
-    
+
     /// 频道类型
     pub channel_type: u8,
-    
+
     /// 客户端已知的最后 pts
     pub last_pts: u64,
-    
+
     /// 限制数量（可选，默认 100）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub limit: Option<u32>,
 }
 
 /// 获取差异响应
-/// 
+///
 /// RPC路由: `sync/get_difference`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetDifferenceResponse {
     /// Commits 列表（pts 递增）
     pub commits: Vec<ServerCommit>,
-    
+
     /// 服务器当前最新 pts
     pub current_pts: u64,
-    
+
     /// 是否还有更多（需要继续拉取）
     pub has_more: bool,
 }
@@ -133,32 +148,32 @@ pub struct GetDifferenceResponse {
 pub struct ServerCommit {
     /// pts（per-channel 单调递增）
     pub pts: u64,
-    
+
     /// 服务器消息 ID
     pub server_msg_id: u64,
-    
+
     /// 关联的 local_message_id（如果来自客户端）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub local_message_id: Option<u64>,
-    
+
     /// 频道 ID
     pub channel_id: u64,
-    
+
     /// 频道类型
     pub channel_type: u8,
-    
+
     /// 消息类型
     pub message_type: String,
-    
+
     /// 消息内容（JSON）
     pub content: serde_json::Value,
-    
+
     /// 服务器时间戳（毫秒）
     pub server_timestamp: i64,
-    
+
     /// 发送者 ID
     pub sender_id: u64,
-    
+
     /// 发送者信息（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_info: Option<SenderInfo>,
@@ -180,19 +195,19 @@ pub struct SenderInfo {
 // ============================================================
 
 /// 获取频道 pts 请求
-/// 
+///
 /// RPC路由: `sync/get_channel_pts`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetChannelPtsRequest {
     /// 频道 ID
     pub channel_id: u64,
-    
+
     /// 频道类型
     pub channel_type: u8,
 }
 
 /// 获取频道 pts 响应
-/// 
+///
 /// RPC路由: `sync/get_channel_pts`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetChannelPtsResponse {
@@ -205,7 +220,7 @@ pub struct GetChannelPtsResponse {
 // ============================================================
 
 /// 批量获取频道 pts 请求
-/// 
+///
 /// RPC路由: `sync/batch_get_channel_pts`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchGetChannelPtsRequest {
@@ -221,7 +236,7 @@ pub struct ChannelIdentifier {
 }
 
 /// 批量获取频道 pts 响应
-/// 
+///
 /// RPC路由: `sync/batch_get_channel_pts`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BatchGetChannelPtsResponse {
@@ -275,6 +290,318 @@ pub struct SyncEntityItem {
     pub payload: Option<serde_json::Value>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FriendSyncFriendPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FriendSyncUserPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub nickname: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_type: Option<i32>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct FriendSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tags: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_pinned: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub friend: Option<FriendSyncFriendPayload>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user: Option<FriendSyncUserPayload>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GroupSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_count: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ChannelSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i64>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unread_count: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_msg_content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_msg_timestamp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ChannelExtraSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i64>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub browse_to: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keep_pts: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keep_offset_y: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub draft: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub draft_updated_at: Option<u64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ChannelUnreadSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i64>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub unread_count: Option<i32>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct UserSettingsSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setting_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct GroupMemberSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub group_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_muted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub joined_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ChannelMemberSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i32>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_remark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub remark: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_invite_uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub inviter_uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_deleted: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub robot: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub version: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forbidden_expiration_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub member_avatar_cache_key: Option<String>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MessageSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i32>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_type: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timestamp: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from_uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sender_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub from: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub uid: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_type: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pts: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub setting: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub order_seq: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub searchable_word: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extra: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub topic: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream_no: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream_seq: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream_flag: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub msg_key: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expire: Option<i64>,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct MessageStatusSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub server_message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i32>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub conversation_type: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub readed: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_read: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read: Option<bool>,
+}
+
 /// 实体同步响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncEntitiesResponse {
@@ -309,7 +636,7 @@ mod tests {
             client_timestamp: 1700000000000,
             device_id: Some("device_001".to_string()),
         };
-        
+
         let json = serde_json::to_string(&req).unwrap();
         assert!(json.contains("local_message_id"));
         assert!(json.contains("123456789"));
@@ -324,9 +651,12 @@ mod tests {
         let decision_rejected = ServerDecision::Rejected {
             reason: "Spam detected".to_string(),
         };
-        
+
         assert_eq!(decision_accepted, ServerDecision::Accepted);
-        assert!(matches!(decision_transformed, ServerDecision::Transformed { .. }));
+        assert!(matches!(
+            decision_transformed,
+            ServerDecision::Transformed { .. }
+        ));
         assert!(matches!(decision_rejected, ServerDecision::Rejected { .. }));
     }
 }

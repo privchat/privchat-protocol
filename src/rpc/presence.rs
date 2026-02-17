@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::presence::*;
+use serde::{Deserialize, Serialize};
 
 /// RPC: presence/subscribe
 /// 订阅在线状态（打开私聊会话时调用）

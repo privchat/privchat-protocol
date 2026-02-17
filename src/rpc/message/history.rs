@@ -1,9 +1,8 @@
 /// 消息历史相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 获取消息历史请求
-/// 
+///
 /// RPC路由: `message/history/get`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageHistoryGetRequest {
@@ -20,10 +19,34 @@ pub struct MessageHistoryGetRequest {
 }
 
 /// 消息历史响应
-/// 
+///
+/// RPC路由: `message/history/get`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageHistoryItem {
+    pub message_id: u64,
+    pub channel_id: u64,
+    pub sender_id: u64,
+    pub content: String,
+    pub message_type: String,
+    pub timestamp: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reply_to_message_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    pub revoked: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revoked_by: Option<u64>,
+}
+
+/// 消息历史响应
+///
 /// RPC路由: `message/history/get`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageHistoryResponse {
-    pub messages: Vec<serde_json::Value>,
+    pub messages: Vec<MessageHistoryItem>,
+    #[serde(default)]
+    pub total: usize,
     pub has_more: bool,
 }

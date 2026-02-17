@@ -1,9 +1,9 @@
 /// 消息反应（Reaction）相关 RPC
-
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// 添加消息反应请求
-/// 
+///
 /// RPC路由: `message/reaction/add`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionAddRequest {
@@ -14,14 +14,14 @@ pub struct MessageReactionAddRequest {
     pub channel_id: Option<u64>,
     /// Emoji表情
     pub emoji: String,
-    
+
     /// 用户ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 移除消息反应请求
-/// 
+///
 /// RPC路由: `message/reaction/remove`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionRemoveRequest {
@@ -29,62 +29,74 @@ pub struct MessageReactionRemoveRequest {
     pub server_message_id: u64,
     /// Emoji表情
     pub emoji: String,
-    
+
     /// 用户ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 获取消息反应列表请求
-/// 
+///
 /// RPC路由: `message/reaction/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionListRequest {
     /// 服务端消息ID
     pub server_message_id: u64,
-    
+
     /// 用户ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 获取消息反应统计请求
-/// 
+///
 /// RPC路由: `message/reaction/stats`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionStatsRequest {
     /// 服务端消息ID
     pub server_message_id: u64,
-    
+
     /// 用户ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
 }
 
 /// 添加消息反应响应
-/// 
+///
 /// RPC路由: `message/reaction/add`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type MessageReactionAddResponse = bool;
 
 /// 移除消息反应响应
-/// 
+///
 /// RPC路由: `message/reaction/remove`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type MessageReactionRemoveResponse = bool;
 
 /// 获取消息反应列表响应
-/// 
+///
 /// RPC路由: `message/reaction/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionListResponse {
-    pub reactions: Vec<serde_json::Value>,  // 反应列表
+    pub success: bool,
+    pub reactions: HashMap<String, Vec<u64>>,
+    pub total_count: usize,
 }
 
 /// 获取消息反应统计响应
-/// 
+///
+/// RPC路由: `message/reaction/stats`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageReactionStatsData {
+    pub reactions: HashMap<String, Vec<u64>>,
+    pub total_count: usize,
+}
+
+/// 获取消息反应统计响应
+///
 /// RPC路由: `message/reaction/stats`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReactionStatsResponse {
-    pub stats: serde_json::Value,  // 统计信息
+    pub success: bool,
+    pub stats: MessageReactionStatsData,
 }

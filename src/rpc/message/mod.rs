@@ -1,11 +1,10 @@
-/// 消息相关 RPC 类型定义
-
-pub mod reaction;
-pub mod status;
-pub mod revoke;
 pub mod history;
+/// 消息相关 RPC 类型定义
+pub mod reaction;
+pub mod revoke;
+pub mod status;
 
-pub use reaction::*;
-pub use status::*;
-pub use revoke::*;
 pub use history::*;
+pub use reaction::*;
+pub use revoke::*;
+pub use status::*;

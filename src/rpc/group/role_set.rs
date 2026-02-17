@@ -1,7 +1,6 @@
 /// 设置群组成员角色 RPC
-/// 
+///
 /// RPC路由: `group/role/set`
-
 use serde::{Deserialize, Serialize};
 
 /// 设置群组成员角色请求
@@ -18,12 +17,12 @@ pub struct GroupRoleSetRequest {
 }
 
 /// 设置群组成员角色响应
-/// 
+///
 /// RPC路由: `group/role/set`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupRoleSetResponse {
     pub group_id: u64,
     pub user_id: u64,
     pub role: String,
-    pub updated_at: Option<String>,  // ISO 8601，可选
+    pub updated_at: Option<String>, // ISO 8601，可选
 }

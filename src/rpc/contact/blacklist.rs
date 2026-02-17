@@ -1,9 +1,8 @@
 /// 黑名单相关 RPC
-
 use serde::{Deserialize, Serialize};
 
 /// 添加黑名单请求
-/// 
+///
 /// RPC路由: `contact/blacklist/add`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistAddRequest {
@@ -14,7 +13,7 @@ pub struct BlacklistAddRequest {
 }
 
 /// 移除黑名单请求
-/// 
+///
 /// RPC路由: `contact/blacklist/remove`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistRemoveRequest {
@@ -25,7 +24,7 @@ pub struct BlacklistRemoveRequest {
 }
 
 /// 检查黑名单请求
-/// 
+///
 /// RPC路由: `contact/blacklist/check`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistCheckRequest {
@@ -36,7 +35,7 @@ pub struct BlacklistCheckRequest {
 }
 
 /// 获取黑名单列表请求
-/// 
+///
 /// RPC路由: `contact/blacklist/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistListRequest {
@@ -45,19 +44,19 @@ pub struct BlacklistListRequest {
 }
 
 /// 添加黑名单响应
-/// 
+///
 /// RPC路由: `contact/blacklist/add`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type BlacklistAddResponse = bool;
 
 /// 移除黑名单响应
-/// 
+///
 /// RPC路由: `contact/blacklist/remove`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type BlacklistRemoveResponse = bool;
 
 /// 检查黑名单状态响应
-/// 
+///
 /// RPC路由: `contact/blacklist/check`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistCheckResponse {
@@ -65,7 +64,7 @@ pub struct BlacklistCheckResponse {
 }
 
 /// 获取黑名单列表响应
-/// 
+///
 /// RPC路由: `contact/blacklist/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistListResponse {
@@ -80,5 +79,5 @@ pub struct BlacklistUserInfo {
     pub username: String,
     pub nickname: Option<String>,
     pub avatar_url: Option<String>,
-    pub blocked_at: i64,  // 毫秒时间戳
+    pub blocked_at: i64, // 毫秒时间戳
 }

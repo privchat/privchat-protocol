@@ -14,7 +14,7 @@ pub struct DevicePushUpdateRequest {
 }
 
 /// 设备推送状态更新响应
-/// 
+///
 /// RPC路由: `device/push/update`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevicePushUpdateResponse {
@@ -36,7 +36,7 @@ pub struct DevicePushStatusRequest {
 }
 
 /// 设备推送状态查询响应
-/// 
+///
 /// RPC路由: `device/push/status`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DevicePushStatusResponse {

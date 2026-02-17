@@ -22,14 +22,14 @@ impl OnlineStatus {
     /// 从秒数计算在线状态
     pub fn from_elapsed_seconds(elapsed: i64) -> Self {
         match elapsed {
-            0..=180 => OnlineStatus::Online,              // 3分钟内
-            181..=3600 => OnlineStatus::Recently,         // 1小时内
-            3601..=604800 => OnlineStatus::LastWeek,      // 7天内
-            604801..=2592000 => OnlineStatus::LastMonth,  // 30天内
+            0..=180 => OnlineStatus::Online,             // 3分钟内
+            181..=3600 => OnlineStatus::Recently,        // 1小时内
+            3601..=604800 => OnlineStatus::LastWeek,     // 7天内
+            604801..=2592000 => OnlineStatus::LastMonth, // 30天内
             _ => OnlineStatus::LongTimeAgo,
         }
     }
-    
+
     /// 转换为字符串
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -255,10 +255,22 @@ mod tests {
     #[test]
     fn test_online_status_calculation() {
         assert_eq!(OnlineStatus::from_elapsed_seconds(0), OnlineStatus::Online);
-        assert_eq!(OnlineStatus::from_elapsed_seconds(180), OnlineStatus::Online);
-        assert_eq!(OnlineStatus::from_elapsed_seconds(181), OnlineStatus::Recently);
-        assert_eq!(OnlineStatus::from_elapsed_seconds(3600), OnlineStatus::Recently);
-        assert_eq!(OnlineStatus::from_elapsed_seconds(3601), OnlineStatus::LastWeek);
+        assert_eq!(
+            OnlineStatus::from_elapsed_seconds(180),
+            OnlineStatus::Online
+        );
+        assert_eq!(
+            OnlineStatus::from_elapsed_seconds(181),
+            OnlineStatus::Recently
+        );
+        assert_eq!(
+            OnlineStatus::from_elapsed_seconds(3600),
+            OnlineStatus::Recently
+        );
+        assert_eq!(
+            OnlineStatus::from_elapsed_seconds(3601),
+            OnlineStatus::LastWeek
+        );
     }
 
     #[test]

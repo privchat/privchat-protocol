@@ -1,5 +1,4 @@
 /// 私聊会话相关 RPC（获取或创建）
-
 use serde::{Deserialize, Serialize};
 
 /// 获取或创建私聊会话请求
