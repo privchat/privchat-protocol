@@ -1,3 +1,20 @@
+// Copyright 2025 Shanghai Boyu Information Technology Co., Ltd.
+// https://privchat.dev
+//
+// Author: zoujiaqing <zoujiaqing@gmail.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use serde::{Deserialize, Serialize};
 
 /// RPC: device/push/update
@@ -11,6 +28,9 @@ pub struct DevicePushUpdateRequest {
     /// 可选的推送令牌（如果提供则更新）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub push_token: Option<String>,
+    /// 可选的推送厂商（apns/fcm/hms/xiaomi/oppo/vivo/honor/lenovo/zte/meizu）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub vendor: Option<String>,
 }
 
 /// 设备推送状态更新响应
