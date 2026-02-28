@@ -1,11 +1,11 @@
 [package]
 name = "privchat-protocol"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 authors = ["zoujiaqing <zoujiaqing@gmail.com>"]
 homepage = "https://privchat.dev"
-repository = "https://github.com/nicegram/privchat-protocol"
+repository = "https://github.com/privchat/privchat-protocol"
 description = "Protocol library for PrivChat IM — message types, RPC routes, error codes, presence, and notifications"
 
 [dependencies]
