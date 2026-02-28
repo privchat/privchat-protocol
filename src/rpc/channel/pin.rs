@@ -1,4 +1,4 @@
-// Copyright 2025 Shanghai Boyu Information Technology Co., Ltd.
+// Copyright 2024 Shanghai Boyu Information Technology Co., Ltd.
 // https://privchat.dev
 //
 // Author: zoujiaqing <zoujiaqing@gmail.com>
