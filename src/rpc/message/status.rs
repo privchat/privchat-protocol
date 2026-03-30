@@ -18,19 +18,18 @@
 /// 消息状态相关 RPC（已读回执等）
 use serde::{Deserialize, Serialize};
 
-/// 标记消息已读请求
+/// 按频道 pts 推进已读请求
 ///
-/// RPC路由: `message/status/read`
+/// RPC路由: `message/status/read_pts`
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MessageStatusReadRequest {
+pub struct MessageStatusReadPtsRequest {
     /// 频道ID
     pub channel_id: u64,
-    /// 服务端消息ID（服务端字段名为 message_id）
-    #[serde(alias = "server_message_id")]
-    pub message_id: u64,
-    /// 用户ID（部分旧服务端会忽略，保持兼容）
-    #[serde(default)]
-    pub user_id: u64,
+    /// 已读游标，语义为“该频道内 pts <= read_pts 的消息均已读”
+    pub read_pts: u64,
+    /// 可选：对应的消息ID（仅用于辅助展示/排障）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_read_message_id: Option<u64>,
 }
 
 /// 获取消息已读列表请求
@@ -67,11 +66,18 @@ pub struct MessageStatusCountRequest {
     pub channel_id: Option<u64>,
 }
 
-/// 标记消息已读响应
+/// 按频道 pts 推进已读响应
 ///
-/// RPC路由: `message/status/read`
-/// 简单操作，返回 true（成功/失败由协议层 code 处理）
-pub type MessageStatusReadResponse = bool;
+/// RPC路由: `message/status/read_pts`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageStatusReadPtsResponse {
+    pub status: String,
+    pub message: String,
+    pub channel_id: u64,
+    pub last_read_pts: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_read_message_id: Option<u64>,
+}
 
 /// 获取消息已读列表响应
 ///

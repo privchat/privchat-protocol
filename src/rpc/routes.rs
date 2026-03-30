@@ -146,8 +146,8 @@ pub mod message_history {
 
 /// 消息状态路由
 pub mod message_status {
-    /// 标记已读
-    pub const READ: &str = "message/status/read";
+    /// 按 pts 推进已读
+    pub const READ_PTS: &str = "message/status/read_pts";
 
     /// 获取未读数量
     pub const COUNT: &str = "message/status/count";

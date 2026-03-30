@@ -619,6 +619,22 @@ pub struct MessageStatusSyncPayload {
     pub read: Option<bool>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ChannelReadCursorSyncPayload {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_type: Option<i32>,
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub type_field: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reader_id: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_read_pts: Option<u64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<i64>,
+}
+
 /// 实体同步响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncEntitiesResponse {
