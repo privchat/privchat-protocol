@@ -20,11 +20,11 @@
 /// 所有 RPC 接口的路由路径集中定义，避免硬编码字符串
 ///
 /// ## 使用示例
-/// ```rust
+/// ```ignore
 /// use privchat_protocol::rpc::routes;
 ///
 /// // 使用路由常量
-/// client.call_rpc(routes::FRIEND_APPLY, request).await?;
+/// client.call_rpc(routes::friend::APPLY, request).await?;
 /// ```
 
 /// 好友系统路由

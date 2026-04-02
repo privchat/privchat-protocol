@@ -271,6 +271,14 @@ pub enum ErrorCode {
     DeviceLimitExceeded = 20801,
     /// Device not verified
     DeviceNotVerified = 20802,
+
+    // Sync Recovery (20900-20999)
+    /// Channel scoped resync required before resume can continue
+    SyncChannelResyncRequired = 20900,
+    /// Entity family scoped resync required before resume can continue
+    SyncEntityResyncRequired = 20901,
+    /// Full rebuild required before resume can continue
+    SyncFullRebuildRequired = 20902,
 }
 
 impl ErrorCode {
@@ -389,6 +397,9 @@ impl ErrorCode {
             Self::DeviceNotFound => "Device not found",
             Self::DeviceLimitExceeded => "Device limit exceeded",
             Self::DeviceNotVerified => "Device not verified",
+            Self::SyncChannelResyncRequired => "Channel scoped resync required",
+            Self::SyncEntityResyncRequired => "Entity scoped resync required",
+            Self::SyncFullRebuildRequired => "Full rebuild required",
         }
     }
 
@@ -502,6 +513,9 @@ impl ErrorCode {
             20800 => Some(Self::DeviceNotFound),
             20801 => Some(Self::DeviceLimitExceeded),
             20802 => Some(Self::DeviceNotVerified),
+            20900 => Some(Self::SyncChannelResyncRequired),
+            20901 => Some(Self::SyncEntityResyncRequired),
+            20902 => Some(Self::SyncFullRebuildRequired),
 
             _ => None,
         }
@@ -563,6 +577,9 @@ mod tests {
         assert_eq!(ErrorCode::GroupNotFound.code(), 20300);
         assert_eq!(ErrorCode::FriendNotFound.code(), 20400);
         assert_eq!(ErrorCode::FileNotFound.code(), 20600);
+        assert_eq!(ErrorCode::SyncChannelResyncRequired.code(), 20900);
+        assert_eq!(ErrorCode::SyncEntityResyncRequired.code(), 20901);
+        assert_eq!(ErrorCode::SyncFullRebuildRequired.code(), 20902);
     }
 
     #[test]
@@ -574,6 +591,10 @@ mod tests {
         );
         assert_eq!(ErrorCode::AuthRequired.message(), "Authentication required");
         assert_eq!(ErrorCode::MessageNotFound.message(), "Message not found");
+        assert_eq!(
+            ErrorCode::SyncChannelResyncRequired.message(),
+            "Channel scoped resync required"
+        );
     }
 
     #[test]
@@ -603,6 +624,10 @@ mod tests {
         assert_eq!(
             ErrorCode::from_code(20000),
             Some(ErrorCode::MessageNotFound)
+        );
+        assert_eq!(
+            ErrorCode::from_code(20900),
+            Some(ErrorCode::SyncChannelResyncRequired)
         );
         assert_eq!(ErrorCode::from_code(99999), None);
     }

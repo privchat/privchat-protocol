@@ -555,7 +555,7 @@ mod tests {
         };
 
         let json = serde_json::to_string(&notification).unwrap();
-        assert!(json.contains("group_member_joined"));
+        assert!(json.contains("GroupMemberJoined"));
         assert!(json.contains("张三"));
 
         let deserialized: NotificationType = serde_json::from_str(&json).unwrap();

@@ -15,30 +15,56 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use num_bigint::BigInt;
 use privchat_protocol::protocol::*;
+use std::collections::HashMap;
 
 fn main() {
     println!("=== Privchat Protocol 消息示例 ===\n");
 
     // 1. 连接请求/响应
     let connect_req = AuthorizationRequest {
-        version: 1,
-        device_id: "device_123".to_string(),
-        device_flag: 1,
-        client_timestamp: 1234567890,
-        uid: "user_123".to_string(),
-        token: "secret_token".to_string(),
-        client_key: "client_public_key".to_string(),
+        auth_type: AuthType::JWT,
+        auth_token: "secret_token".to_string(),
+        client_info: ClientInfo {
+            client_type: "android".to_string(),
+            version: "1.0.0".to_string(),
+            os: "android".to_string(),
+            os_version: "14".to_string(),
+            device_model: Some("Pixel".to_string()),
+            app_package: Some("dev.privchat.app".to_string()),
+        },
+        device_info: DeviceInfo {
+            device_id: "device_123".to_string(),
+            device_type: DeviceType::Android,
+            app_id: "privchat-app".to_string(),
+            push_token: None,
+            push_channel: None,
+            device_name: "Pixel".to_string(),
+            device_model: Some("Pixel 8".to_string()),
+            os_version: Some("14".to_string()),
+            app_version: Some("1.0.0".to_string()),
+            manufacturer: Some("Google".to_string()),
+            device_fingerprint: None,
+        },
+        protocol_version: "1.0".to_string(),
+        properties: HashMap::new(),
     };
 
     let connect_resp = AuthorizationResponse {
-        protocol_version: 1,
-        server_key: "server_public_key".to_string(),
-        salt: "random_salt".to_string(),
-        time_diff: BigInt::from(100),
-        reason_code: 0,
-        node_id: BigInt::from(1),
+        success: true,
+        error_code: None,
+        error_message: None,
+        session_id: Some("session_1".to_string()),
+        user_id: Some(123),
+        connection_id: Some("conn_1".to_string()),
+        server_info: Some(ServerInfo {
+            version: "0.1.0".to_string(),
+            name: "privchat-server".to_string(),
+            features: vec!["rpc".to_string(), "push".to_string()],
+            max_message_size: 1024 * 1024,
+            connection_timeout: 30,
+        }),
+        heartbeat_interval: Some(30),
     };
 
     println!("连接请求: {:?}", connect_req);
@@ -64,7 +90,7 @@ fn main() {
 
     let send_resp = SendMessageResponse {
         client_seq: 1,
-        server_message_id: BigInt::from(999),
+        server_message_id: 999,
         message_seq: 1,
         reason_code: 0,
     };
@@ -120,11 +146,11 @@ fn main() {
 
     // 5. 断开连接请求/响应
     let disconnect_req = DisconnectRequest {
-        reason_code: 0,
-        reason: "用户主动断开".to_string(),
+        reason: DisconnectReason::UserInitiated,
+        message: Some("用户主动断开".to_string()),
     };
 
-    let disconnect_resp = DisconnectResponse::success();
+    let disconnect_resp = DisconnectResponse { acknowledged: true };
 
     println!("断开连接请求: {:?}", disconnect_req);
     println!("断开连接响应: {:?}", disconnect_resp);
@@ -133,16 +159,16 @@ fn main() {
     // 6. 订阅请求/响应
     let subscribe_req = SubscribeRequest {
         setting: 1,
-        local_message_id: "sub_001".to_string(),
-        channel_id: "news_channel".to_string(),
+        local_message_id: 1001,
+        channel_id: 2001,
         channel_type: 2,
         action: 1,
         param: "all".to_string(),
     };
 
     let subscribe_resp = SubscribeResponse {
-        local_message_id: "sub_001".to_string(),
-        channel_id: "news_channel".to_string(),
+        local_message_id: 1001,
+        channel_id: 2001,
         channel_type: 2,
         action: 1,
         reason_code: 0,
@@ -156,8 +182,8 @@ fn main() {
     let mut batch_messages = Vec::new();
     for i in 1..=3 {
         let mut msg = PushMessageRequest::new();
-        msg.server_message_id = BigInt::from(i);
-        msg.from_uid = format!("user_{}", i);
+        msg.server_message_id = i;
+        msg.from_uid = i;
         msg.payload = format!("批量消息 {}", i).as_bytes().to_vec();
         batch_messages.push(msg);
     }
@@ -170,8 +196,7 @@ fn main() {
     println!();
 
     // 8. 推送请求/响应
-    let publish_req =
-        PublishRequest::system_push("news_channel", "系统通知消息".as_bytes().to_vec());
+    let publish_req = PublishRequest::system_push(2001, "系统通知消息".as_bytes().to_vec());
     let publish_resp = PublishResponse::success();
 
     println!("推送请求: {:?}", publish_req);

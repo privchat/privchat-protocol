@@ -279,12 +279,12 @@ pub struct ChannelPtsInfo {
 /// RPC 路由: `entity/sync_entities`（待服务端实现）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SyncEntitiesRequest {
-    /// 实体类型：friend, group, channel, group_member, user, user_settings, user_block 等（受控枚举）
+    /// 实体类型：friend, group, channel, group_member, user, user_block 等（受控枚举）
     pub entity_type: String,
     /// 客户端上次同步到的版本号，0 或空表示全量
     #[serde(skip_serializing_if = "Option::is_none")]
     pub since_version: Option<u64>,
-    /// 可选：同步范围，如 group_member 需带 group_id，user 按需拉取时带 user_id
+    /// 可选：同步范围，如 group_member 需带 group_id；默认走集合型增量同步
     #[serde(skip_serializing_if = "Option::is_none")]
     pub scope: Option<String>,
     /// 可选：每页数量
@@ -441,14 +441,6 @@ pub struct ChannelUnreadSyncPayload {
     pub type_field: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread_count: Option<i32>,
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct UserSettingsSyncPayload {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub setting_key: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub value: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -692,4 +684,5 @@ mod tests {
         ));
         assert!(matches!(decision_rejected, ServerDecision::Rejected { .. }));
     }
+
 }
