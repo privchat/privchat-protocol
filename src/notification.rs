@@ -17,6 +17,56 @@
 
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationEnvelope<T> {
+    pub message_type: String,
+    pub content: String,
+    pub metadata: T,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelReadCursorNotificationMetadata {
+    pub notification_type: String,
+    pub channel_id: u64,
+    pub channel_type: i32,
+    pub reader_id: String,
+    pub read_pts: u64,
+    pub visibility: String,
+    pub updated_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChannelReadCursorNotification {
+    pub message_type: String,
+    pub content: String,
+    pub metadata: ChannelReadCursorNotificationMetadata,
+}
+
+impl ChannelReadCursorNotification {
+    pub fn new(
+        channel_id: u64,
+        channel_type: i32,
+        reader_id: u64,
+        read_pts: u64,
+        visibility: impl Into<String>,
+        updated_at: i64,
+    ) -> Self {
+        Self {
+            message_type: "notification".to_string(),
+            content: "channel read cursor updated".to_string(),
+            metadata: ChannelReadCursorNotificationMetadata {
+                notification_type: "channel_read_cursor_updated".to_string(),
+                channel_id,
+                channel_type,
+                reader_id: reader_id.to_string(),
+                read_pts,
+                visibility: visibility.into(),
+                updated_at,
+            },
+        }
+    }
+}
+
 /// 系统通知类型枚举
 ///
 /// 用于各种会话中的系统通知消息，如好友请求、群组操作、红包等
