@@ -73,9 +73,9 @@ pub struct GroupApprovalItem {
     pub method: GroupApprovalMethod,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
-    pub created_at: String,
+    pub created_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expires_at: Option<String>,
+    pub expires_at: Option<u64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,5 +99,5 @@ pub struct GroupApprovalHandleResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reject_reason: Option<String>,
     pub message: String,
-    pub handled_at: String,
+    pub handled_at: u64,
 }

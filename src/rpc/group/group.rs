@@ -59,7 +59,7 @@ pub struct GroupCreateResponse {
     pub name: String,
     pub description: Option<String>,
     pub member_count: u32,
-    pub created_at: String, // ISO 8601
+    pub created_at: u64, // Unix 毫秒时间戳
     pub creator_id: u64,
 }
 
@@ -73,8 +73,8 @@ pub struct GroupInfoResponse {
     pub description: Option<String>,
     pub avatar_url: Option<String>,
     pub owner_id: u64,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: u64,
+    pub updated_at: u64,
     pub member_count: u32,
     pub message_count: Option<u32>,
     pub is_archived: Option<bool>,

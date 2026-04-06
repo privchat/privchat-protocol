@@ -120,7 +120,7 @@ pub struct GroupMemberInfo {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
     pub role: String,
-    pub joined_at: String,
+    pub joined_at: u64,
     pub is_muted: bool,
 }
 

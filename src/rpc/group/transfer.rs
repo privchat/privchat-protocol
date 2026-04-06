@@ -38,5 +38,5 @@ pub struct GroupTransferOwnerRequest {
 pub struct GroupTransferOwnerResponse {
     pub group_id: u64,
     pub new_owner_id: u64,
-    pub transferred_at: Option<String>, // ISO 8601，可选
+    pub transferred_at: Option<u64>, // Unix 毫秒时间戳，可选
 }

@@ -101,7 +101,7 @@ pub struct AccountUserDetailResponse {
 pub struct AccountUserUpdateResponse {
     pub status: String,
     pub action: String,
-    pub timestamp: String,
+    pub timestamp: u64,
 }
 
 /// 生成用户分享卡片响应
@@ -112,11 +112,11 @@ pub struct AccountUserShareCardResponse {
     pub share_id: String,
     pub target_user_id: u64,
     pub receiver_id: u64,
-    pub created_at: String,
+    pub created_at: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub share_key: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub share_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expire_at: Option<String>,
+    pub expire_at: Option<u64>,
 }

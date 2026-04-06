@@ -125,8 +125,8 @@ pub struct AuthResponse {
     /// Refresh Token（用于刷新 token，同样绑定设备）
     pub refresh_token: Option<String>,
 
-    /// Token 过期时间（RFC3339 格式）
-    pub expires_at: String,
+    /// Token 过期时间（Unix 毫秒时间戳）
+    pub expires_at: u64,
 
     /// 绑定的设备ID（返回给客户端确认）
     ///

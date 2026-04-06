@@ -58,7 +58,7 @@ pub struct AccountProfileUpdateRequest {
 pub struct AccountProfileGetResponse {
     pub status: String,
     pub action: String,
-    pub timestamp: String,
+    pub timestamp: u64,
 }
 
 /// 更新个人资料响应
@@ -68,5 +68,5 @@ pub struct AccountProfileGetResponse {
 pub struct AccountProfileUpdateResponse {
     pub status: String,
     pub action: String,
-    pub timestamp: String,
+    pub timestamp: u64,
 }

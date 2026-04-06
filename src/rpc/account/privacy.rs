@@ -73,7 +73,7 @@ pub struct AccountPrivacySettings {
     pub allow_search_by_qrcode: bool,
     pub allow_view_by_non_friend: bool,
     pub allow_receive_message_from_non_friend: bool,
-    pub updated_at: String,
+    pub updated_at: u64,
 }
 
 /// 获取隐私设置响应
@@ -89,7 +89,7 @@ pub struct AccountPrivacyGetResponse {
     pub allow_search_by_qrcode: bool,
     pub allow_view_by_non_friend: bool,
     pub allow_receive_message_from_non_friend: bool,
-    pub updated_at: String,
+    pub updated_at: u64,
 }
 
 /// 更新隐私设置响应
@@ -107,5 +107,5 @@ pub struct AccountPrivacyUpdateResponse {
     pub allow_search_by_qrcode: bool,
     pub allow_view_by_non_friend: bool,
     pub allow_receive_message_from_non_friend: bool,
-    pub updated_at: String,
+    pub updated_at: u64,
 }

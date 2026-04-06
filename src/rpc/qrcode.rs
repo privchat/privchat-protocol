@@ -121,8 +121,8 @@ pub struct QRCodeEntry {
     pub qr_code: String,
     pub qr_type: String,
     pub target_id: String,
-    pub created_at: String,
-    pub expire_at: Option<String>,
+    pub created_at: u64,
+    pub expire_at: Option<u64>,
     pub used_count: u32,
     pub max_usage: Option<u32>,
     #[serde(default)]
@@ -138,8 +138,8 @@ pub struct QRCodeGenerateResponse {
     pub qr_code: String,
     pub qr_type: String,
     pub target_id: u64,
-    pub created_at: String,
-    pub expire_at: Option<String>,
+    pub created_at: u64,
+    pub expire_at: Option<u64>,
     pub max_usage: Option<u32>,
     pub used_count: u32,
 }
@@ -155,7 +155,7 @@ pub struct QRCodeResolveResponse {
     pub data: Option<serde_json::Value>,
     pub used_count: u32,
     pub max_usage: Option<u32>,
-    pub expire_at: Option<String>,
+    pub expire_at: Option<u64>,
 }
 
 /// 刷新二维码响应
@@ -166,7 +166,7 @@ pub struct QRCodeRefreshResponse {
     pub old_qr_key: String,
     pub new_qr_key: String,
     pub new_qr_code: String,
-    pub revoked_at: String,
+    pub revoked_at: u64,
 }
 
 /// 撤销二维码响应
@@ -176,7 +176,7 @@ pub struct QRCodeRefreshResponse {
 pub struct QRCodeRevokeResponse {
     pub success: bool,
     pub qr_key: String,
-    pub revoked_at: String,
+    pub revoked_at: u64,
 }
 
 /// 获取二维码列表响应
@@ -195,7 +195,7 @@ pub struct QRCodeListResponse {
 pub struct UserQRCodeGenerateResponse {
     pub qr_key: String,
     pub qr_code: String,
-    pub created_at: String,
+    pub created_at: u64,
 }
 
 /// 刷新用户二维码响应
@@ -210,6 +210,6 @@ pub type UserQRCodeRefreshResponse = QRCodeRefreshResponse;
 pub struct UserQRCodeGetResponse {
     pub qr_key: String,
     pub qr_code: String,
-    pub created_at: String,
+    pub created_at: u64,
     pub used_count: u32,
 }

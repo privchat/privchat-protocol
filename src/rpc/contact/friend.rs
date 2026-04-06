@@ -18,6 +18,8 @@
 /// 好友相关 RPC
 use serde::{Deserialize, Serialize};
 
+use crate::rpc::account::search::SearchedUser;
+
 /// 申请添加好友请求
 ///
 /// RPC路由: `contact/friend/apply`
@@ -114,7 +116,7 @@ pub struct FriendApplyResponse {
     pub user_id: u64,
     pub username: String,
     pub status: String,   // "pending"
-    pub added_at: String, // ISO 8601
+    pub added_at: u64, // Unix 毫秒时间戳
     pub message: Option<String>,
 }
 
@@ -149,9 +151,12 @@ pub struct FriendCheckResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendPendingItem {
     pub from_user_id: u64,
+    /// 申请者完整用户资料（服务端通过 get_user_profile_with_fallback + 补充字段填充）
+    pub user: SearchedUser,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
-    pub created_at: String,
+    /// 申请时间（Unix 毫秒时间戳）
+    pub created_at: u64,
 }
 
 /// 待处理好友申请响应

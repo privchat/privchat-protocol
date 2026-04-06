@@ -90,7 +90,7 @@ pub struct GroupSettingsUpdateResponse {
     pub group_id: String,
     pub message: String,
     pub updated_count: u32,
-    pub updated_at: String,
+    pub updated_at: u64,
 }
 
 /// 获取群组设置响应
@@ -106,8 +106,8 @@ pub struct GroupSettingsData {
     pub announcement: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: u64,
+    pub updated_at: u64,
 }
 
 /// 获取群组设置响应
@@ -129,5 +129,5 @@ pub struct GroupMuteAllResponse {
     pub all_muted: bool,
     pub message: String,
     pub operator_id: String,
-    pub updated_at: String,
+    pub updated_at: u64,
 }

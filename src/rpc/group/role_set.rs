@@ -41,5 +41,5 @@ pub struct GroupRoleSetResponse {
     pub group_id: u64,
     pub user_id: u64,
     pub role: String,
-    pub updated_at: Option<String>, // ISO 8601，可选
+    pub updated_at: Option<u64>, // Unix 毫秒时间戳，可选
 }

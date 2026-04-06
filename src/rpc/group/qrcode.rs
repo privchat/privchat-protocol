@@ -73,9 +73,9 @@ pub struct GroupQRCodeJoinRequest {
 pub struct GroupQRCodeGenerateResponse {
     pub qr_key: String,
     pub qr_code: String,           // privchat://group/get?qrkey=xxx&token=yyy
-    pub expire_at: Option<String>, // ISO 8601
+    pub expire_at: Option<u64>,    // Unix 毫秒时间戳
     pub group_id: u64,
-    pub created_at: String, // ISO 8601
+    pub created_at: u64, // Unix 毫秒时间戳
 }
 
 /// 通过二维码加入群组响应
@@ -87,7 +87,7 @@ pub struct GroupQRCodeJoinResponse {
     pub group_id: u64,
     pub request_id: Option<String>, // 如果需要审批
     pub message: Option<String>,
-    pub expires_at: Option<String>, // ISO 8601
+    pub expires_at: Option<u64>, // Unix 毫秒时间戳
     pub user_id: Option<u64>,       // 如果已加入
-    pub joined_at: Option<String>,  // ISO 8601，如果已加入
+    pub joined_at: Option<u64>, // Unix 毫秒时间戳，如果已加入
 }

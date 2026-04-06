@@ -45,7 +45,7 @@ pub struct MessageHistoryItem {
     pub sender_id: u64,
     pub content: String,
     pub message_type: String,
-    pub timestamp: String,
+    pub timestamp: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to_message_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -40,7 +40,7 @@ pub struct ChannelBroadcastSubscribeResponse {
     pub message: String,
     pub channel_id: u64,
     pub user_id: u64,
-    pub subscribed_at: String,
+    pub subscribed_at: u64,
 }
 
 /// 通用动作响应（当前 create/publish/list/content/list 在服务端返回该形态）
@@ -48,7 +48,7 @@ pub struct ChannelBroadcastSubscribeResponse {
 pub struct ChannelBroadcastActionResponse {
     pub status: String,
     pub action: String,
-    pub timestamp: String,
+    pub timestamp: u64,
 }
 
 /// 创建广播频道请求

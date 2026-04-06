@@ -92,7 +92,7 @@ pub struct MessageReadUserEntry {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub read_at: Option<String>,
+    pub read_at: Option<u64>,
 }
 
 /// 获取消息已读列表响应
