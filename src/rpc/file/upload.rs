@@ -61,6 +61,28 @@ pub struct FileRequestUploadTokenResponse {
     pub file_id: String,
 }
 
+/// 获取文件 URL 请求
+///
+/// RPC路由: `file/get_url`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileGetUrlRequest {
+    pub file_id: u64,
+    /// 用户ID（服务器端填充，客户端不可设置）
+    #[serde(skip_deserializing, default)]
+    pub user_id: u64,
+}
+
+/// 获取文件 URL 响应
+///
+/// RPC路由: `file/get_url`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileGetUrlResponse {
+    pub file_url: String,
+    pub expires_at: i64,
+    pub file_size: u64,
+    pub mime_type: String,
+}
+
 /// 上传回调响应
 ///
 /// RPC路由: `file/upload_callback`

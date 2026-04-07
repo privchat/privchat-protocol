@@ -274,6 +274,9 @@ pub mod file {
 
     /// 上传回调
     pub const UPLOAD_CALLBACK: &str = "file/upload_callback";
+
+    /// 获取文件 URL
+    pub const GET_URL: &str = "file/get_url";
 }
 
 /// 广播频道路由（订阅号/频道功能）
