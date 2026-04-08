@@ -215,12 +215,6 @@ pub mod account_user {
 
 /// 在线状态路由
 pub mod presence {
-    /// 订阅在线状态（打开私聊会话时）
-    pub const SUBSCRIBE: &str = "presence/subscribe";
-
-    /// 取消订阅（关闭私聊会话时）
-    pub const UNSUBSCRIBE: &str = "presence/unsubscribe";
-
     /// 发送输入状态通知
     pub const TYPING: &str = "presence/typing";
 

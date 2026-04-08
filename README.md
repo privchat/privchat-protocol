@@ -56,7 +56,7 @@ All RPC operations are routed via `RpcRequest` / `RpcResponse` messages. Route c
 | Channel | `rpc::routes::channel` | direct_get_or_create, pin, hide, mute |
 | Broadcast | `rpc::routes::channel_broadcast` | create, subscribe, list |
 | File | `rpc::routes::file` | request_upload_token, upload_callback |
-| Presence | `rpc::routes::presence` | subscribe, unsubscribe, typing, status_get |
+| Presence | `rpc::routes::presence` | typing, status_get |
 | Device | `rpc::routes::device` | push_update, push_status |
 | Sticker | `rpc::routes::sticker` | package_list, package_detail |
 | QR Code | `rpc::routes::qrcode` | generate, resolve, refresh, revoke, list |

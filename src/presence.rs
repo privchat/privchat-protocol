@@ -16,7 +16,6 @@
 // limitations under the License.
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// 在线状态枚举
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -73,63 +72,46 @@ pub struct OnlineStatusInfo {
     pub online_devices: Vec<super::DeviceType>,
 }
 
-/// 订阅在线状态请求
+/// Presence 当前态批量查询请求
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscribePresenceRequest {
-    /// 要订阅的用户ID列表
-    pub user_ids: Vec<u64>,
-}
-
-/// 订阅在线状态响应
-/// RPC 层只返回 data 负载；外层 code/message 由 RPC 封装，此处仅保留业务字段
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SubscribePresenceResponse {
-    /// 初始在线状态（订阅时立即返回）
-    pub initial_statuses: HashMap<u64, OnlineStatusInfo>,
-}
-
-/// 取消订阅在线状态请求
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UnsubscribePresenceRequest {
-    /// 要取消订阅的用户ID列表
-    pub user_ids: Vec<u64>,
-}
-
-/// 取消订阅在线状态响应
-/// 与 reaction 等一致，data 为裸 bool，成功失败由外层 code 表示
-pub type UnsubscribePresenceResponse = bool;
-
-/// 获取在线状态请求（批量查询）
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetOnlineStatusRequest {
+pub struct PresenceBatchStatusRequest {
     /// 要查询的用户ID列表
     pub user_ids: Vec<u64>,
 }
 
-/// 获取在线状态响应
+/// Presence 当前态批量查询响应
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GetOnlineStatusResponse {
-    /// 响应码
-    pub code: i32,
-    /// 响应消息
-    pub message: String,
-    /// 在线状态映射
-    pub statuses: HashMap<u64, OnlineStatusInfo>,
+pub struct PresenceBatchStatusResponse {
+    /// Presence 快照列表
+    pub items: Vec<PresenceSnapshot>,
+    /// 无权查看的用户
+    pub denied_user_ids: Vec<u64>,
 }
 
-/// 在线状态变化通知（服务端主动推送）
+/// Presence 聚合快照
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct OnlineStatusChangeNotification {
+pub struct PresenceSnapshot {
     /// 用户ID
     pub user_id: u64,
-    /// 旧状态
-    pub old_status: OnlineStatus,
-    /// 新状态
-    pub new_status: OnlineStatus,
+    /// 是否在线
+    pub is_online: bool,
     /// 最后活跃时间
-    pub last_seen: i64,
-    /// 时间戳
-    pub timestamp: i64,
+    pub last_seen_at: i64,
+    /// 在线设备数
+    pub device_count: u32,
+    /// per-user monotonic version
+    pub version: u64,
+}
+
+/// Presence 状态变化通知（服务端主动推送）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PresenceChangedNotification {
+    /// 用户ID
+    pub user_id: u64,
+    /// per-user monotonic version
+    pub version: u64,
+    /// 最新快照
+    pub snapshot: PresenceSnapshot,
 }
 
 /// 输入状态动作类型
