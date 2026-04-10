@@ -56,9 +56,18 @@ pub struct FileUploadCallbackRequest {
 /// RPC路由: `file/request_upload_token`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileRequestUploadTokenResponse {
+    /// 标准字段
     pub token: String,
     pub upload_url: String,
+    /// 历史兼容字段：部分服务端未返回 file_id，默认空字符串
+    #[serde(default)]
     pub file_id: String,
+    /// 可选：token 过期时间（Unix 秒）
+    #[serde(default)]
+    pub expires_at: Option<i64>,
+    /// 可选：允许上传的最大大小（bytes）
+    #[serde(default)]
+    pub max_size: Option<i64>,
 }
 
 /// 获取文件 URL 请求
