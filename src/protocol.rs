@@ -419,6 +419,11 @@ pub struct PushMessageRequest {
     pub topic: String,
     pub from_uid: u64,
     pub payload: Vec<u8>,
+    /// 消息是否已删除/撤回。
+    /// 服务端撤回时以相同 server_message_id 再推一条 deleted=true，
+    /// SDK 收到后将本地对应消息标记为已撤回（set_message_revoke）。
+    #[serde(default)]
+    pub deleted: bool,
 }
 
 impl PushMessageRequest {
