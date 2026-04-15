@@ -18,6 +18,76 @@
 /// 用户信息相关 RPC
 use serde::{Deserialize, Serialize};
 
+/// 用户详情查看来源类型
+///
+/// 客户端调用 `account/user/detail` 时需通过 `source` 字段指定来源，
+/// 服务端根据来源做对应的权限校验。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DetailSourceType {
+    /// 搜索来源，source_id = 搜索会话 ID
+    Search,
+    /// 群组来源，source_id = 群 ID
+    Group,
+    /// 好友来源，source_id = 好友 user_id
+    Friend,
+    /// 待处理好友申请，source_id 可忽略
+    FriendPending,
+    /// 名片分享来源，source_id = 分享 ID
+    CardShare,
+    /// 临时会话来源（聊天界面查看对方资料），source_id = channel_id
+    Conversation,
+}
+
+impl DetailSourceType {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Search => "search",
+            Self::Group => "group",
+            Self::Friend => "friend",
+            Self::FriendPending => "friend_pending",
+            Self::CardShare => "card_share",
+            Self::Conversation => "conversation",
+        }
+    }
+
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "search" => Some(Self::Search),
+            "group" => Some(Self::Group),
+            "friend" => Some(Self::Friend),
+            "friend_pending" => Some(Self::FriendPending),
+            "card_share" => Some(Self::CardShare),
+            "conversation" => Some(Self::Conversation),
+            _ => None,
+        }
+    }
+}
+
+/// 用户类型
+///
+/// 对应 `AccountUserDetailResponse.user_type` 和数据库 `user.user_type` 字段。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserType;
+
+impl UserType {
+    /// 普通用户（默认，注册用户）
+    pub const NORMAL: i16 = 0;
+    /// 系统用户（ID 1~99，系统预定义）
+    pub const SYSTEM: i16 = 1;
+    /// 机器人（客服、助手等）
+    pub const BOT: i16 = 2;
+
+    pub fn label(value: i16) -> &'static str {
+        match value {
+            Self::NORMAL => "普通用户",
+            Self::SYSTEM => "系统用户",
+            Self::BOT => "机器人",
+            _ => "未知",
+        }
+    }
+}
+
 /// 获取用户详情请求
 ///
 /// RPC路由: `account/user/detail`
