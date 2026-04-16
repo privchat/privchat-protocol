@@ -147,6 +147,24 @@ pub struct FriendCheckResponse {
     pub status: Option<String>, // "accepted", "pending", "deleted"
 }
 
+/// 设置好友备注请求
+///
+/// RPC路由: `contact/friend/set_alias`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendSetAliasRequest {
+    /// 目标好友的 user_id
+    pub user_id: u64,
+    /// 备注名；None 或空字符串表示清除备注
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
+}
+
+/// 设置好友备注响应
+///
+/// RPC路由: `contact/friend/set_alias`
+/// true=设置成功，false=设置失败
+pub type FriendSetAliasResponse = bool;
+
 /// 待处理好友申请条目
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FriendPendingItem {

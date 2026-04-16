@@ -46,6 +46,9 @@ pub mod friend {
 
     /// 检查好友关系
     pub const CHECK: &str = "contact/friend/check";
+
+    /// 设置好友备注
+    pub const SET_ALIAS: &str = "contact/friend/set_alias";
 }
 
 /// 黑名单路由
