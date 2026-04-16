@@ -67,6 +67,47 @@ impl ChannelReadCursorNotification {
     }
 }
 
+/// 消息送达回执通知
+///
+/// 当接收方 ACK 了推送消息后，服务端通过此结构体通知发送方消息已送达。
+/// JSON 结构需要与 SDK `push_message_to_delivery_receipt` 解析逻辑匹配。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageDeliveryReceiptMetadata {
+    pub notification_type: String,
+    pub channel_id: u64,
+    pub channel_type: i32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MessageDeliveryReceiptNotification {
+    pub content: String,
+    pub metadata: MessageDeliveryReceiptMetadata,
+    pub receipt_type: String,
+    pub server_message_id: u64,
+    pub delivered_at: u64,
+}
+
+impl MessageDeliveryReceiptNotification {
+    pub fn new(
+        channel_id: u64,
+        channel_type: i32,
+        server_message_id: u64,
+        delivered_at: u64,
+    ) -> Self {
+        Self {
+            content: String::new(),
+            metadata: MessageDeliveryReceiptMetadata {
+                notification_type: "message_receipt_updated".to_string(),
+                channel_id,
+                channel_type,
+            },
+            receipt_type: "delivered".to_string(),
+            server_message_id,
+            delivered_at,
+        }
+    }
+}
+
 /// 系统通知类型枚举
 ///
 /// 用于各种会话中的系统通知消息，如好友请求、群组操作、红包等

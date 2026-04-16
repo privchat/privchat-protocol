@@ -25,11 +25,13 @@ use serde::{Deserialize, Serialize};
 pub struct MessageStatusReadPtsRequest {
     /// 频道ID
     pub channel_id: u64,
-    /// 已读游标，语义为“该频道内 pts <= read_pts 的消息均已读”
+    /// 已读游标，语义为”该频道内 pts <= read_pts 的消息均已读”
     pub read_pts: u64,
     /// 可选：对应的消息ID（仅用于辅助展示/排障）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_message_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client_visible_pts: Option<u64>,
 }
 
 /// 获取消息已读列表请求
@@ -77,6 +79,12 @@ pub struct MessageStatusReadPtsResponse {
     pub last_read_pts: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_message_id: Option<u64>,
+    /// 服务端实际接受的已读 pts（经过双重水位裁剪后的值）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub accepted_read_pts: Option<u64>,
+    /// 服务端当前的连续送达水位（供客户端参考）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server_delivered_pts: Option<u64>,
 }
 
 /// 获取消息已读列表响应
