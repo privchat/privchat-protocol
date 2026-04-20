@@ -81,15 +81,15 @@ The `ContentMessageType` enum defines payload types carried inside send/push mes
 | Value | Type | Description |
 |-------|------|-------------|
 | 0 | Text | Plain text message |
-| 1 | Image | Image with file_id, dimensions |
-| 2 | File | Generic file attachment |
-| 3 | Voice | Voice recording |
-| 4 | Video | Video clip |
+| 1 | Voice | Voice recording (with duration) |
+| 2 | Image | Image with file_id, dimensions |
+| 3 | Video | Video clip (with duration, dimensions, thumbnail) |
+| 4 | File | Generic file attachment (including audio files) |
 | 5 | System | System notification |
-| 6 | Audio | Audio file |
-| 7 | Location | GPS coordinates |
-| 8 | ContactCard | User contact card |
-| 9 | Sticker | Sticker with package |
+| 6 | Sticker | Sticker with package |
+| 7 | ContactCard | User contact card |
+| 8 | Location | GPS coordinates |
+| 9 | Link | URL preview (title/description/thumbnail via SDK callback) |
 | 10 | Forward | Forwarded message(s) |
 
 ## Presence & Typing
