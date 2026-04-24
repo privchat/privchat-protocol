@@ -182,8 +182,8 @@ impl AuthorizationRequest {
 pub struct AuthorizationResponse {
     /// 连接是否成功
     pub success: bool,
-    /// 错误码
-    pub error_code: Option<String>,
+    /// 错误码（对应 `privchat_protocol::ErrorCode`）
+    pub error_code: Option<u32>,
     /// 错误信息
     pub error_message: Option<String>,
     /// 会话ID

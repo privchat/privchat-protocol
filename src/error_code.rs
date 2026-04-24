@@ -104,6 +104,10 @@ pub enum ErrorCode {
     UserBanned = 10007,
     /// IP address not allowed
     IpNotAllowed = 10008,
+    /// Refresh token expired
+    RefreshTokenExpired = 10009,
+    /// Refresh token revoked
+    RefreshTokenRevoked = 10010,
 
     // Request Parameters (10100-10199)
     /// Invalid parameters
@@ -325,6 +329,8 @@ impl ErrorCode {
             Self::SessionNotFound => "Session not found",
             Self::UserBanned => "User banned",
             Self::IpNotAllowed => "IP address not allowed",
+            Self::RefreshTokenExpired => "Refresh token expired",
+            Self::RefreshTokenRevoked => "Refresh token revoked",
             Self::InvalidParams => "Invalid parameters",
             Self::MissingRequiredParam => "Missing required parameter",
             Self::InvalidParamType => "Invalid parameter type",
@@ -441,6 +447,8 @@ impl ErrorCode {
             10006 => Some(Self::SessionNotFound),
             10007 => Some(Self::UserBanned),
             10008 => Some(Self::IpNotAllowed),
+            10009 => Some(Self::RefreshTokenExpired),
+            10010 => Some(Self::RefreshTokenRevoked),
             10100 => Some(Self::InvalidParams),
             10101 => Some(Self::MissingRequiredParam),
             10102 => Some(Self::InvalidParamType),

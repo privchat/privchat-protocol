@@ -133,3 +133,44 @@ pub struct AuthResponse {
     /// 客户端应保存此 device_id，后续所有请求都需要携带
     pub device_id: String,
 }
+
+/// 刷新 Token 请求（Phase B1，non-rotation）
+///
+/// RPC 路由: `account/auth/refresh`
+///
+/// 语义：
+/// - 调用方携带 refresh_token + device_id，服务端签发新的 access token 并原样返回 refresh_token
+/// - Phase B1 不做 rotation / grace / reused；Phase B2 将引入
+///
+/// 错误码：
+/// - `10001 InvalidToken`   —— 签名 / 格式 / typ 错误，不可自愈
+/// - `10009 RefreshTokenExpired` —— refresh token 已过期
+/// - `10010 RefreshTokenRevoked` —— 设备不匹配 / session_version 落后 / 服务端撤销
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthRefreshRequest {
+    /// 登录或上一次 refresh 时拿到的 refresh token
+    pub refresh_token: String,
+
+    /// 当前设备 ID，必须与 refresh_token 绑定的 device_id 一致
+    pub device_id: String,
+}
+
+/// 刷新 Token 响应（Phase B1）
+///
+/// - `access_token` 为新签发的 access token
+/// - `refresh_token` B1 下原样返回；B2 启用 rotation 后才会下发新值。客户端处理规则：
+///     - 字段存在且非空 → 替换本地 refresh token
+///     - 字段缺失 / None → 保留本地现有 refresh token（**不要当作清空**）
+/// - `expires_at` 为 access token 过期时刻（Unix ms）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthRefreshResponse {
+    /// 新的 access token
+    pub access_token: String,
+
+    /// 新的 refresh token；B1 下可能与入参相同，客户端缺失时应保留旧值
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
+
+    /// access token 过期时间（Unix 毫秒）
+    pub expires_at: u64,
+}
