@@ -255,6 +255,12 @@ pub mod auth {
     pub const REFRESH: &str = "account/auth/refresh";
 }
 
+/// 扫码登录路由（spec QR_API §5）
+pub mod qr_login {
+    /// 创建二维码场景（unauth，Web/PC 建连后立即调用）
+    pub const CREATE_SCENE: &str = "qr_login/create_scene";
+}
+
 /// 隐私设置路由
 pub mod privacy {
     /// 获取隐私设置
