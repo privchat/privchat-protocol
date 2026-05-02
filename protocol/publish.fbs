@@ -1,0 +1,19 @@
+// PrivChat protocol — channel publish (server-side broadcast input).
+
+namespace privchat.protocol;
+
+table PublishRequest {
+  channel_id        : ulong;     // 0 = absent
+  topic             : string;    // optional
+  timestamp         : ulong;
+  payload           : [ubyte];
+  publisher         : string;    // optional (e.g. "system", or uid as string)
+  server_message_id : ulong;     // 0 = absent
+}
+
+table PublishResponse {
+  succeed : bool;
+  message : string;    // optional
+}
+
+root_type PublishRequest;

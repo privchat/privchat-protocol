@@ -1,0 +1,77 @@
+// PrivChat protocol — shared types: enums, MessageSetting, Property
+//
+// Conventions (see protocol/README.md):
+//   - All enums use 0 = Unknown / Unspecified for FlatBuffers default-value safety.
+//   - Enum numeric values are PERMANENTLY locked. Add new variants at the end only.
+//   - Strings: missing != empty. Empty string is a real value.
+//   - u64 IDs: 0 = absent. Counters start at 1.
+
+namespace privchat.protocol;
+
+/// Wire-level message type. Carried in msgtrans Packet.biz_type.
+enum MessageType : ubyte {
+  Unknown               = 0,
+  AuthorizationRequest  = 1,
+  AuthorizationResponse = 2,
+  DisconnectRequest     = 3,
+  DisconnectResponse    = 4,
+  SendMessageRequest    = 5,
+  SendMessageResponse   = 6,
+  PushMessageRequest    = 7,
+  PushMessageResponse   = 8,
+  PushBatchRequest      = 9,
+  PushBatchResponse     = 10,
+  PingRequest           = 11,
+  PongResponse          = 12,
+  SubscribeRequest      = 13,
+  SubscribeResponse     = 14,
+  PublishRequest        = 15,
+  PublishResponse       = 16,
+  RpcRequest            = 17,
+  RpcResponse           = 18,
+}
+
+/// Authentication scheme used in AuthorizationRequest.
+enum AuthType : ubyte {
+  Unspecified  = 0,
+  JWT          = 1,
+  UserPassword = 2,
+  OAuth        = 3,
+  Anonymous    = 4,
+}
+
+/// Client device type.
+enum DeviceType : ubyte {
+  Unknown  = 0,
+  iOS      = 1,
+  Android  = 2,
+  Web      = 3,
+  MacOS    = 4,
+  Windows  = 5,
+  Linux    = 6,
+  IoT      = 7,
+}
+
+/// Reason a connection is being closed.
+enum DisconnectReason : ubyte {
+  Unknown              = 0,
+  UserInitiated        = 1,
+  ServerShutdown       = 2,
+  AuthenticationFailed = 3,
+  ProtocolError        = 4,
+  Timeout              = 5,
+  DuplicateConnection  = 6,
+  ServerMaintenance    = 7,
+}
+
+/// Per-message delivery flags carried on send / push.
+table MessageSetting {
+  need_receipt : bool;
+  signal       : ubyte;
+}
+
+/// Generic key/value pair (used to model HashMap<String, String>).
+table Property {
+  key   : string;
+  value : string;
+}

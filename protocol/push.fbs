@@ -1,0 +1,43 @@
+// PrivChat protocol — server-to-client message push (single + batch).
+
+include "common.fbs";
+
+namespace privchat.protocol;
+
+table PushMessageRequest {
+  setting           : MessageSetting;
+  msg_key           : string;
+  server_message_id : ulong;          // 0 = absent
+  message_seq       : uint;
+  local_message_id  : ulong;          // 0 = absent (originating client_seq)
+  stream_no         : string;
+  stream_seq        : uint;
+  stream_flag       : ubyte;
+  timestamp         : uint;           // u32 in source — second resolution
+  channel_id        : ulong;          // 0 = absent
+  channel_type      : ubyte;
+  message_type      : uint;           // application content type
+  expire            : uint;
+  topic             : string;
+  from_uid          : ulong;          // 0 = absent
+  payload           : [ubyte];
+  /// True when this push is a recall/delete notification for an existing
+  /// server_message_id. SDK must mark the matching local message as revoked.
+  deleted           : bool;
+}
+
+table PushMessageResponse {
+  succeed : bool;
+  message : string;   // optional
+}
+
+table PushBatchRequest {
+  messages : [PushMessageRequest];
+}
+
+table PushBatchResponse {
+  succeed : bool;
+  message : string;   // optional
+}
+
+root_type PushBatchRequest;

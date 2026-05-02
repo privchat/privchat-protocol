@@ -1,0 +1,24 @@
+// PrivChat protocol — channel subscribe / unsubscribe.
+
+namespace privchat.protocol;
+
+table SubscribeRequest {
+  /// Bit flags (raw u8 in source — NOT the MessageSetting table).
+  setting          : ubyte;
+  local_message_id : ulong;   // 0 = absent
+  channel_id       : ulong;   // 0 = absent
+  channel_type     : ubyte;
+  /// Action code: subscribe / unsubscribe / query (defined by application).
+  action           : ubyte;
+  param            : string;
+}
+
+table SubscribeResponse {
+  local_message_id : ulong;
+  channel_id       : ulong;
+  channel_type     : ubyte;
+  action           : ubyte;
+  reason_code      : ubyte;
+}
+
+root_type SubscribeRequest;

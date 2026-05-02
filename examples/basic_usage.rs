@@ -120,6 +120,7 @@ fn main() {
         topic: "chat".to_string(),
         from_uid: 456,
         payload: "Hello back!".as_bytes().to_vec(),
+        deleted: false,
     };
 
     let recv_resp = PushMessageResponse {

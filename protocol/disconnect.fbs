@@ -1,0 +1,16 @@
+// PrivChat protocol — disconnect handshake.
+
+include "common.fbs";
+
+namespace privchat.protocol;
+
+table DisconnectRequest {
+  reason  : DisconnectReason;
+  message : string;             // optional
+}
+
+table DisconnectResponse {
+  acknowledged : bool;
+}
+
+root_type DisconnectRequest;

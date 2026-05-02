@@ -1,0 +1,20 @@
+// PrivChat protocol — RPC envelope. Body and data are opaque bytes;
+// per-route encoding is decided by the RPC layer (currently JSON UTF-8).
+
+namespace privchat.protocol;
+
+table RpcRequest {
+  route : string;
+  /// Opaque request body — encoding determined by `route`.
+  body  : [ubyte];
+}
+
+table RpcResponse {
+  /// Application-defined status code (0 = success by convention).
+  code    : int;
+  message : string;
+  /// Opaque response data — empty == None (Rust source uses Option<Value>).
+  data    : [ubyte];
+}
+
+root_type RpcRequest;

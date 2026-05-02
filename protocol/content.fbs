@@ -1,0 +1,136 @@
+// PrivChat protocol — message payload envelope.
+//
+// This is the FlatBuffers encoding of what was previously an opaque JSON
+// blob inside `SendMessageRequest.payload`, `PushMessageRequest.payload`,
+// and `PublishRequest.payload`. Per-type metadata is now strongly typed
+// via a `MessageMetadata` union — text/system messages carry no metadata
+// (FB union NONE variant).
+//
+// `ContentMessageType` (text=0, voice=1, image=2, ...) is INTENTIONALLY
+// not modeled here as a fbs enum: its 0 = "Text" wire convention is
+// older than this migration and lives in `crate::message`. The metadata
+// union acts as the canonical type discriminator at the schema level.
+
+namespace privchat.protocol;
+
+// ------------------------------------------------------------------
+// Per-type metadata tables
+// ------------------------------------------------------------------
+
+table ImageMetadata {
+  file_id : ulong;
+  url     : string;     // optional CDN url
+  width   : uint;
+  height  : uint;
+}
+
+table FileMetadata {
+  file_id : ulong;
+}
+
+/// Voice/audio bubble metadata. Distinct from FileMetadata because the
+/// UI depends on `duration` to size the bubble.
+table VoiceMetadata {
+  file_id  : ulong;
+  duration : uint;       // seconds; client rounds sub-1s up to 1
+}
+
+/// Video metadata; thumbnail fields are optional (client falls back to
+/// frame extraction when absent).
+table VideoMetadata {
+  file_id            : ulong;
+  duration           : uint;     // seconds
+  width              : uint;
+  height             : uint;
+  thumbnail_file_id  : ulong;    // 0 = absent
+  thumbnail_width    : uint;     // 0 = absent
+  thumbnail_height   : uint;     // 0 = absent
+}
+
+table LocationMetadata {
+  latitude  : double;
+  longitude : double;
+}
+
+table ContactCardMetadata {
+  user_id : ulong;
+}
+
+table StickerMetadata {
+  sticker_id : string;
+  image_url  : string;
+}
+
+table ForwardMessageRef {
+  message_id : ulong;       // 0 = absent
+  content    : string;      // optional
+  /// Opaque JSON bytes for arbitrary forward-message extension data.
+  /// Kept dynamic because forward content can wrap any other message
+  /// type with vendor-specific extras.
+  extra      : [ubyte];
+}
+
+table ForwardMetadata {
+  messages : [ForwardMessageRef];
+}
+
+/// Link/URL preview metadata. `thumbnail_file_id` is filled in by the
+/// SDK preview hook (server doesn't crawl); 0 means no preview.
+table LinkMetadata {
+  url               : string;
+  title             : string;
+  description       : string;
+  thumbnail_file_id : ulong;
+}
+
+// ------------------------------------------------------------------
+// Metadata union
+// ------------------------------------------------------------------
+
+/// Union of every metadata variant. `NONE` (the implicit FB default)
+/// represents text / system messages that carry no metadata.
+union MessageMetadata {
+  ImageMetadata,
+  FileMetadata,
+  VoiceMetadata,
+  VideoMetadata,
+  LocationMetadata,
+  ContactCardMetadata,
+  StickerMetadata,
+  ForwardMetadata,
+  LinkMetadata,
+}
+
+// ------------------------------------------------------------------
+// Source: how a stranger / non-friend message was discovered
+// ------------------------------------------------------------------
+
+table MessageSource {
+  /// Source channel: "search" | "group" | "card_share" | "qrcode" | "phone".
+  source_type : string;
+  source_id   : string;
+}
+
+// ------------------------------------------------------------------
+// Top-level payload envelope
+// ------------------------------------------------------------------
+
+/// Carried inside `SendMessageRequest.payload` / `PushMessageRequest.payload`
+/// / `PublishRequest.payload` as opaque bytes. Decode with
+/// `MessagePayloadEnvelope::decode_fb(packet.payload)`.
+table MessagePayloadEnvelope {
+  /// Display content (text body for Text messages; caption for media).
+  content : string;
+  /// Type-specific structured metadata. Union NONE = no metadata
+  /// (text / system messages).
+  metadata : MessageMetadata;
+  /// Replied-to server_message_id; 0 = not a reply.
+  reply_to_message_id : ulong;
+  /// Mentioned user IDs; empty list = no mentions.
+  mentioned_user_ids : [ulong];
+  /// Stranger-message source descriptor (search / group / qrcode etc.);
+  /// absent for ordinary friend messages.
+  message_source : MessageSource;
+}
+
+root_type MessagePayloadEnvelope;

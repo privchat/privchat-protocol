@@ -1,0 +1,61 @@
+// PrivChat protocol — authorization (connect handshake).
+
+include "common.fbs";
+
+namespace privchat.protocol;
+
+/// Software/runtime info about the client app.
+table ClientInfo {
+  client_type  : string;
+  version      : string;
+  os           : string;
+  os_version   : string;
+  device_model : string;   // optional in semantics; absent if not provided
+  app_package  : string;   // optional
+}
+
+/// Hardware/device info, used for push delivery and audit.
+table DeviceInfo {
+  device_id          : string;
+  device_type        : DeviceType;
+  app_id             : string;
+  push_token         : string;   // optional
+  push_channel       : string;   // optional
+  device_name        : string;
+  device_model       : string;   // optional
+  os_version         : string;   // optional
+  app_version        : string;   // optional
+  manufacturer       : string;   // optional
+  device_fingerprint : string;   // optional
+}
+
+/// Server capability advertisement, returned in AuthorizationResponse.
+table ServerInfo {
+  version            : string;
+  name               : string;
+  features           : [string];
+  max_message_size   : ulong;
+  connection_timeout : ulong;
+}
+
+table AuthorizationRequest {
+  auth_type        : AuthType;
+  auth_token       : string;
+  client_info      : ClientInfo;
+  device_info      : DeviceInfo;
+  protocol_version : string;
+  properties       : [Property];
+}
+
+table AuthorizationResponse {
+  success            : bool;
+  error_code         : uint;        // 0 = absent (Option<u32>)
+  error_message      : string;      // optional
+  session_id         : string;      // optional
+  user_id            : ulong;       // 0 = absent (Option<u64>)
+  connection_id      : string;      // optional
+  server_info        : ServerInfo;  // optional
+  heartbeat_interval : ulong;       // 0 = absent (Option<u64>)
+}
+
+root_type AuthorizationRequest;

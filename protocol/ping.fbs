@@ -1,0 +1,14 @@
+// PrivChat protocol — heartbeat (application-layer, not WS ping/pong).
+
+namespace privchat.protocol;
+
+table PingRequest {
+  /// Unix epoch milliseconds. i64 to match Rust source; negatives are invalid.
+  timestamp : long;
+}
+
+table PongResponse {
+  timestamp : long;
+}
+
+root_type PingRequest;

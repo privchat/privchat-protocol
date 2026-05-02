@@ -1,0 +1,27 @@
+// PrivChat protocol — client-to-server send message.
+
+include "common.fbs";
+
+namespace privchat.protocol;
+
+table SendMessageRequest {
+  setting          : MessageSetting;
+  client_seq       : uint;
+  local_message_id : ulong;          // 0 = absent
+  stream_no        : string;
+  channel_id       : ulong;          // 0 = absent
+  message_type     : uint;           // application content type (NOT wire MessageType)
+  expire           : uint;
+  from_uid         : ulong;          // 0 = absent
+  topic            : string;
+  payload          : [ubyte];        // raw bytes (zero-copy)
+}
+
+table SendMessageResponse {
+  client_seq        : uint;
+  server_message_id : ulong;          // 0 = absent
+  message_seq       : uint;
+  reason_code       : uint;
+}
+
+root_type SendMessageRequest;
