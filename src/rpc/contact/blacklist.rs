@@ -16,6 +16,7 @@
 // limitations under the License.
 
 /// 黑名单相关 RPC
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// 添加黑名单请求
@@ -77,7 +78,8 @@ pub type BlacklistRemoveResponse = bool;
 /// RPC路由: `contact/blacklist/check`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistCheckResponse {
-    pub is_blocked: bool,
+    pub success: bool,
+    pub blocked: bool,
 }
 
 /// 获取黑名单列表响应
@@ -85,16 +87,19 @@ pub struct BlacklistCheckResponse {
 /// RPC路由: `contact/blacklist/list`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistListResponse {
+    pub success: bool,
     pub users: Vec<BlacklistUserInfo>,
-    pub total: usize,
 }
 
-/// 黑名单用户信息
+/// 黑名单用户信息（join 行：拉黑者 + 被拉黑者 + 时间 + 原因）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlacklistUserInfo {
+    /// 拉黑者 ID
     pub user_id: u64,
-    pub username: String,
-    pub nickname: Option<String>,
-    pub avatar_url: Option<String>,
-    pub blocked_at: i64, // 毫秒时间戳
+    /// 被拉黑用户 ID
+    pub blocked_user_id: u64,
+    /// 拉黑时间（ISO8601 / RFC3339；服务端用 chrono `DateTime<Utc>` 序列化）
+    pub blocked_at: DateTime<Utc>,
+    /// 拉黑原因（可选）
+    pub reason: Option<String>,
 }
