@@ -24,6 +24,58 @@
 use serde::{Deserialize, Serialize};
 
 // ============================================================
+// JSON wire helpers — u64 ↔ string
+// ============================================================
+//
+// JavaScript's `JSON.parse` decodes JSON `Number` to `f64`, which loses
+// precision for snowflake u64 values above 2^53. The fix is to carry
+// large u64 ids as JSON strings on the wire while keeping them as `u64`
+// in Rust memory. Apply via `#[serde(with = "u64_str")]` /
+// `#[serde(with = "option_u64_str")]` on the targeted fields.
+//
+// Currently used only by the `sync/get_difference` family
+// (GetDifferenceRequest / GetDifferenceResponse / ServerCommit). Other
+// JSON RPC structs that emit u64s as numbers are tracked separately —
+// expand this attribute usage once each is migrated.
+
+mod u64_str {
+    use serde::{de::Error as DeError, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(value: &u64, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&value.to_string())
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        s.parse::<u64>().map_err(D::Error::custom)
+    }
+}
+
+mod option_u64_str {
+    use serde::{de::Error as DeError, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(
+        value: &Option<u64>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match value {
+            Some(v) => serializer.serialize_str(&v.to_string()),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<u64>, D::Error> {
+        let opt = Option::<String>::deserialize(deserializer)?;
+        match opt {
+            Some(s) => s.parse::<u64>().map(Some).map_err(D::Error::custom),
+            None => Ok(None),
+        }
+    }
+}
+
+// ============================================================
 // SessionReady - 客户端声明已完成 bootstrap
 // ============================================================
 
@@ -129,15 +181,22 @@ pub enum ServerDecision {
 /// 获取差异请求
 ///
 /// RPC路由: `sync/get_difference`
+///
+/// JSON wire: `channel_id` and `last_pts` are carried as **strings** to
+/// preserve u64 precision against JS `JSON.parse` rounding above 2^53.
+/// Rust callers read/write them as `u64` as usual; the conversion is
+/// driven by serde at the (de)serialize boundary.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetDifferenceRequest {
     /// 频道 ID
+    #[serde(with = "u64_str")]
     pub channel_id: u64,
 
     /// 频道类型
     pub channel_type: u8,
 
     /// 客户端已知的最后 pts
+    #[serde(with = "u64_str")]
     pub last_pts: u64,
 
     /// 限制数量（可选，默认 100）
@@ -148,12 +207,16 @@ pub struct GetDifferenceRequest {
 /// 获取差异响应
 ///
 /// RPC路由: `sync/get_difference`
+///
+/// JSON wire: `current_pts` is a string. See `GetDifferenceRequest` for
+/// rationale.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GetDifferenceResponse {
     /// Commits 列表（pts 递增）
     pub commits: Vec<ServerCommit>,
 
     /// 服务器当前最新 pts
+    #[serde(with = "u64_str")]
     pub current_pts: u64,
 
     /// 是否还有更多（需要继续拉取）
@@ -161,19 +224,27 @@ pub struct GetDifferenceResponse {
 }
 
 /// 服务器 Commit（权威事实）
+///
+/// JSON wire: every u64 id (`pts`, `server_msg_id`, `local_message_id`,
+/// `channel_id`, `sender_id`) is a string. `channel_type` (u8),
+/// `message_type` (string), `content` (json), and `server_timestamp`
+/// (i64 millis — well below 2^53 for any plausible date) stay native.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerCommit {
     /// pts（per-channel 单调递增）
+    #[serde(with = "u64_str")]
     pub pts: u64,
 
     /// 服务器消息 ID
+    #[serde(with = "u64_str")]
     pub server_msg_id: u64,
 
     /// 关联的 local_message_id（如果来自客户端）
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none", with = "option_u64_str")]
     pub local_message_id: Option<u64>,
 
     /// 频道 ID
+    #[serde(with = "u64_str")]
     pub channel_id: u64,
 
     /// 频道类型
@@ -189,6 +260,7 @@ pub struct ServerCommit {
     pub server_timestamp: i64,
 
     /// 发送者 ID
+    #[serde(with = "u64_str")]
     pub sender_id: u64,
 
     /// 发送者信息（可选）
