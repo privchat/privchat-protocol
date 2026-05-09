@@ -278,6 +278,47 @@ fn rpc_response_roundtrip() {
 }
 
 #[test]
+fn transfer_request_roundtrip() {
+    let req = TransferRequest {
+        request_id: "550e8400-e29b-41d4-a716-446655440000".to_string(),
+        channel_id: 2817,
+        route: "game/poker/raise".to_string(),
+        body: br#"{"amount":200}"#.to_vec(),
+    };
+    let got = roundtrip(&req);
+    assert_eq!(got.request_id, req.request_id);
+    assert_eq!(got.channel_id, req.channel_id);
+    assert_eq!(got.route, req.route);
+    assert_eq!(got.body, req.body);
+}
+
+#[test]
+fn transfer_response_roundtrip() {
+    let req_id = "550e8400-e29b-41d4-a716-446655440000".to_string();
+
+    let resp_with_data = TransferResponse::success(req_id.clone(), 2817, b"raise-result".to_vec());
+    let got = roundtrip(&resp_with_data);
+    assert_eq!(got.request_id, req_id);
+    assert_eq!(got.channel_id, 2817);
+    assert_eq!(got.code, 0);
+    assert_eq!(got.data, Some(b"raise-result".to_vec()));
+
+    let resp_empty = TransferResponse::success_empty(req_id.clone(), 2817);
+    let got = roundtrip(&resp_empty);
+    assert_eq!(got.request_id, req_id);
+    assert_eq!(got.code, 0);
+    assert_eq!(got.data, None); // empty [ubyte] decodes back to None
+
+    let resp_err = TransferResponse::error(req_id.clone(), 2817, 20902, "service not found".to_string());
+    let got = roundtrip(&resp_err);
+    assert_eq!(got.request_id, req_id);
+    assert_eq!(got.channel_id, 2817);
+    assert_eq!(got.code, 20902);
+    assert_eq!(got.message, "service not found");
+    assert_eq!(got.data, None);
+}
+
+#[test]
 fn authorization_request_roundtrip() {
     let mut props = HashMap::new();
     props.insert("locale".to_string(), "zh-CN".to_string());
@@ -391,9 +432,13 @@ fn message_type_values_locked() {
     assert_eq!(MessageType::PublishResponse as u8, 16);
     assert_eq!(MessageType::RpcRequest as u8, 17);
     assert_eq!(MessageType::RpcResponse as u8, 18);
+    assert_eq!(MessageType::TransferRequest as u8, 19);
+    assert_eq!(MessageType::TransferResponse as u8, 20);
 
     // From<u8> handles known values + falls back to Unknown for unknown.
     assert_eq!(MessageType::from(5), MessageType::SendMessageRequest);
+    assert_eq!(MessageType::from(19), MessageType::TransferRequest);
+    assert_eq!(MessageType::from(20), MessageType::TransferResponse);
     assert_eq!(MessageType::from(0), MessageType::Unknown);
     assert_eq!(MessageType::from(99), MessageType::Unknown); // safer than legacy "fallback to AuthRequest"
 }

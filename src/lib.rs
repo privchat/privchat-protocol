@@ -62,6 +62,10 @@ pub mod rpc_generated {
     include!(concat!(env!("OUT_DIR"), "/rpc_generated.rs"));
 }
 #[allow(unused_imports, dead_code, clippy::all, mismatched_lifetime_syntaxes)]
+pub mod transfer_generated {
+    include!(concat!(env!("OUT_DIR"), "/transfer_generated.rs"));
+}
+#[allow(unused_imports, dead_code, clippy::all, mismatched_lifetime_syntaxes)]
 pub mod content_generated {
     include!(concat!(env!("OUT_DIR"), "/content_generated.rs"));
 }
@@ -79,6 +83,7 @@ pub mod fb {
     pub use crate::rpc_generated::privchat::protocol::*;
     pub use crate::send_generated::privchat::protocol::*;
     pub use crate::subscribe_generated::privchat::protocol::*;
+    pub use crate::transfer_generated::privchat::protocol::*;
 }
 
 pub mod codec;

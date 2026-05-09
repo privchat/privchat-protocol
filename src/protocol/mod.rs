@@ -18,6 +18,7 @@ mod push;
 mod rpc;
 mod send;
 mod subscribe;
+mod transfer;
 
 pub use auth::*;
 pub use content::*;
@@ -28,6 +29,7 @@ pub use push::*;
 pub use rpc::*;
 pub use send::*;
 pub use subscribe::*;
+pub use transfer::*;
 
 // ------------------------------------------------------------------
 // Cross-message shared types
@@ -65,6 +67,8 @@ pub enum MessageType {
     PublishResponse = 16,
     RpcRequest = 17,
     RpcResponse = 18,
+    TransferRequest = 19,
+    TransferResponse = 20,
 }
 
 impl From<u8> for MessageType {
@@ -88,6 +92,8 @@ impl From<u8> for MessageType {
             16 => MessageType::PublishResponse,
             17 => MessageType::RpcRequest,
             18 => MessageType::RpcResponse,
+            19 => MessageType::TransferRequest,
+            20 => MessageType::TransferResponse,
             _ => MessageType::Unknown,
         }
     }

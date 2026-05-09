@@ -19,6 +19,7 @@ const SCHEMAS: &[&str] = &[
     "subscribe.fbs",
     "publish.fbs",
     "rpc.fbs",
+    "transfer.fbs",
     "content.fbs",
 ];
 
@@ -32,6 +33,7 @@ const SCHEMA_MODULES: &[&str] = &[
     "subscribe_generated",
     "publish_generated",
     "rpc_generated",
+    "transfer_generated",
     "content_generated",
 ];
 

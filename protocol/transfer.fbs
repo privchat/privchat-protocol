@@ -1,0 +1,50 @@
+// PrivChat protocol — Channel Transfer envelope.
+//
+// Bidirectional channel-scoped RPC, mirrors RpcRequest/RpcResponse pattern:
+//   - Client → server → application: client sends TransferRequest, awaits TransferResponse.
+//   - Application → server → target user sessions: application calls server's
+//     `/api/service/transfer/send` HTTP endpoint, server pushes the same
+//     TransferRequest packet to all online sessions of the target user.
+//
+// `target_user_id` is NOT in the wire packet; it lives only in the server's
+// HTTP API parameters. The receiving session knows it is the target.
+//
+// `body` and `data` are opaque bytes — per-route encoding decided by the
+// application layer.
+//
+// See spec: privchat-docs/spec/02-server/CHANNEL_TRANSFER_SPEC.md (v2.0).
+
+namespace privchat.protocol;
+
+table TransferRequest {
+  /// Originator-generated request ID. UUID v4 or equivalent ≥16-byte entropy,
+  /// length ≤64. Used to match TransferResponse and (for client→app direction)
+  /// as part of the application idempotency key.
+  request_id : string;
+  /// Target channel. The originator (client or application) must have a valid
+  /// relationship with this channel (subscription/membership), enforced by the
+  /// server.
+  channel_id : ulong;
+  /// Business route, format `service-name/module/action` (no leading `/`).
+  /// Server treats as opaque; application interprets and validates the prefix
+  /// against the business service registry.
+  route      : string;
+  /// Opaque request body — encoding determined by `route`.
+  body       : [ubyte];
+}
+
+table TransferResponse {
+  /// Same as the corresponding TransferRequest.request_id.
+  request_id : string;
+  /// Same as the corresponding TransferRequest.channel_id.
+  channel_id : ulong;
+  /// Application-defined status code (0 = success by convention).
+  /// See ERROR_CODE_SPEC for shared codes; `20900-20909` are the
+  /// Channel Transfer segment.
+  code       : int;
+  message    : string;
+  /// Opaque response data — empty == None (Rust source uses Option<Vec<u8>>).
+  data       : [ubyte];
+}
+
+root_type TransferRequest;
