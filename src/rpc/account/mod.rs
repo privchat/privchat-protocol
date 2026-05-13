@@ -15,12 +15,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod bot;
 pub mod privacy;
 pub mod profile;
 /// 账号相关 RPC 类型定义
 pub mod search;
 pub mod user;
 
+pub use bot::*;
 pub use privacy::*;
 pub use profile::*;
 pub use search::*;

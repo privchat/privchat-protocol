@@ -276,13 +276,23 @@ pub enum ErrorCode {
     /// Device not verified
     DeviceNotVerified = 20802,
 
-    // Sync Recovery (20900-20999)
+    // Sync Recovery (20900-20919)
     /// Channel scoped resync required before resume can continue
     SyncChannelResyncRequired = 20900,
     /// Entity family scoped resync required before resume can continue
     SyncEntityResyncRequired = 20901,
     /// Full rebuild required before resume can continue
     SyncFullRebuildRequired = 20902,
+
+    // Bot Follow (20920-20929) — spec 02-server/SERVICE_ACCOUNT_FOLLOW_SPEC §6
+    /// `bot_user_id` does not exist
+    BotNotFound = 20920,
+    /// Target `user_type != 2` (not a Bot)
+    NotABot = 20921,
+    /// Target Bot `status` is not enabled
+    BotDisabled = 20922,
+    /// Bot follow rate limit exceeded (reserved; v1 not enforced)
+    BotFollowRateLimited = 20923,
 }
 
 impl ErrorCode {
@@ -406,6 +416,10 @@ impl ErrorCode {
             Self::SyncChannelResyncRequired => "Channel scoped resync required",
             Self::SyncEntityResyncRequired => "Entity scoped resync required",
             Self::SyncFullRebuildRequired => "Full rebuild required",
+            Self::BotNotFound => "Bot not found",
+            Self::NotABot => "Target user is not a Bot",
+            Self::BotDisabled => "Bot is disabled",
+            Self::BotFollowRateLimited => "Bot follow rate limited",
         }
     }
 
@@ -524,6 +538,10 @@ impl ErrorCode {
             20900 => Some(Self::SyncChannelResyncRequired),
             20901 => Some(Self::SyncEntityResyncRequired),
             20902 => Some(Self::SyncFullRebuildRequired),
+            20920 => Some(Self::BotNotFound),
+            20921 => Some(Self::NotABot),
+            20922 => Some(Self::BotDisabled),
+            20923 => Some(Self::BotFollowRateLimited),
 
             _ => None,
         }
@@ -588,6 +606,10 @@ mod tests {
         assert_eq!(ErrorCode::SyncChannelResyncRequired.code(), 20900);
         assert_eq!(ErrorCode::SyncEntityResyncRequired.code(), 20901);
         assert_eq!(ErrorCode::SyncFullRebuildRequired.code(), 20902);
+        assert_eq!(ErrorCode::BotNotFound.code(), 20920);
+        assert_eq!(ErrorCode::NotABot.code(), 20921);
+        assert_eq!(ErrorCode::BotDisabled.code(), 20922);
+        assert_eq!(ErrorCode::BotFollowRateLimited.code(), 20923);
     }
 
     #[test]

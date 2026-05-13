@@ -201,6 +201,17 @@ pub mod account_search {
     pub const BY_QRCODE: &str = "account/search/by_qrcode";
 }
 
+/// 账号 Bot 路由（关注 / 取消关注 service-account 的 Bot 子集）
+///
+/// Spec: `02-server/SERVICE_ACCOUNT_FOLLOW_SPEC.md`
+pub mod account_bot {
+    /// 关注一个 Bot；server 写 `privchat_bot_follow` + 通知 application
+    pub const FOLLOW: &str = "account/bot/follow";
+
+    /// 取消关注一个 Bot；server 切 status；保留 channel_id / 历史
+    pub const UNFOLLOW: &str = "account/bot/unfollow";
+}
+
 /// 账号用户路由
 pub mod account_user {
     /// 获取用户详情

@@ -73,6 +73,10 @@ pub struct SearchedUser {
     pub is_friend: bool,
     /// 是否可以发送消息
     pub can_send_message: bool,
+    /// 是否已关注（仅当 user_type=2 (Bot) 时有意义；非 bot 永远为 false）
+    /// spec: `02-server/SERVICE_ACCOUNT_FOLLOW_SPEC`
+    #[serde(default)]
+    pub is_follow: bool,
 }
 
 /// 搜索响应（返回用户信息列表）

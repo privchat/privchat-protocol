@@ -162,6 +162,10 @@ pub struct AccountUserDetailResponse {
     pub can_send_message: bool,
     pub source_type: String,
     pub source_id: String,
+    /// 是否已关注（仅 user_type=2 Bot 有意义；非 bot 永远 false）
+    /// spec: `02-server/SERVICE_ACCOUNT_FOLLOW_SPEC`
+    #[serde(default)]
+    pub is_follow: bool,
 }
 
 /// 更新用户信息响应
