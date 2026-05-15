@@ -89,6 +89,7 @@ pub mod fb {
 pub mod codec;
 pub mod error;
 pub mod error_code;
+pub mod inbox_event;
 pub mod message;
 pub mod notification;
 pub mod presence;
@@ -99,6 +100,10 @@ pub mod version;
 pub use codec::{decode_message, encode_message, FlatBufferMessage};
 pub use error::ProtocolError;
 pub use error_code::ErrorCode;
+pub use inbox_event::{
+    payloads as inbox_event_payloads, topics as inbox_event_topics, UserInboxEventEnvelope,
+    USER_INBOX_EVENT_SCHEMA_VERSION_V1,
+};
 pub use message::*;
 pub use notification::*;
 pub use presence::*;
