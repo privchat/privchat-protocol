@@ -88,6 +88,18 @@ pub mod topics {
     /// 唯一对应一条 pending 记录，receiver 由 push 通道隐含）。payload =
     /// [`super::payloads::FriendRequestReceivedPayload`]。
     pub const FRIEND_REQUEST_RECEIVED: &str = "friend.request.received";
+
+    /// 我发出了一条新好友申请——给 requester 自己的其他设备的唤醒事件。
+    /// target = requester 自己；aggregate_type = `friend_request`；
+    /// aggregate_id = 被申请人 target_user_id 字符串。payload =
+    /// [`super::payloads::FriendRequestSentPayload`]。
+    pub const FRIEND_REQUEST_SENT: &str = "friend.request.sent";
+
+    /// 一条好友申请的状态发生变化（accepted / rejected / recalled / expired）。
+    /// **双方所有设备**都会收到。aggregate_type = `friend_request`；
+    /// aggregate_id = peer_user_id（接收人视角下的"对端"，requester 视角下的
+    /// 被申请人）。payload = [`super::payloads::FriendRequestStatusChangedPayload`]。
+    pub const FRIEND_REQUEST_STATUS_CHANGED: &str = "friend.request.status_changed";
 }
 
 /// 各事件类型对应的 typed payload 结构体。
@@ -109,6 +121,30 @@ pub mod payloads {
         pub requester_id: u64,
         pub receiver_id: u64,
         pub message: String,
+    }
+
+    /// `friend.request.sent` 事件 payload——A 在某个设备发起申请后，A 自己其他
+    /// 设备收到此事件，触发 entity sync 把"我发出的 pending"拉到本地。
+    ///
+    /// 仍然是 hint，不是事实源；客户端必须靠 `entity/sync_entities("friend")`
+    /// 拉到真实的 status / message / source。
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FriendRequestSentPayload {
+        pub requester_id: u64,
+        pub target_user_id: u64,
+    }
+
+    /// `friend.request.status_changed` 事件 payload——一条申请的状态从 pending
+    /// 切到 accepted / rejected / recalled / expired 时，双方所有设备都收到。
+    ///
+    /// `new_status` 携带新状态整型值（与 friendships.status 同枚举：
+    /// 1=accepted / 3=rejected / 4=recalled / 5=expired）。仍然是 hint，
+    /// 权威态从 entity sync 拉。
+    #[derive(Debug, Clone, Serialize, Deserialize)]
+    pub struct FriendRequestStatusChangedPayload {
+        pub requester_id: u64,
+        pub target_user_id: u64,
+        pub new_status: i16,
     }
 }
 

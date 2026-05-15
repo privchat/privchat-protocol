@@ -38,6 +38,9 @@ pub mod friend {
     /// 拒绝好友申请
     pub const REJECT: &str = "contact/friend/reject";
 
+    /// 撤回好友申请（requester 主动撤回自己发出的 pending request）
+    pub const RECALL: &str = "contact/friend/recall";
+
     /// 删除好友
     pub const DELETE: &str = "contact/friend/remove";
 

@@ -132,6 +132,26 @@ pub type FriendAcceptResponse = u64;
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type FriendRejectResponse = bool;
 
+/// 撤回好友申请请求（requester 主动撤回自己发出的 pending request）。
+///
+/// RPC路由: `contact/friend/recall`
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FriendRecallRequest {
+    /// 被申请人 ID（target_user_id）—— 用于在 friendships(user_id=me,
+    /// friend_id=target, status=0) 上定位要撤回的行。
+    pub target_user_id: u64,
+
+    /// 申请人 ID（服务器端从 session 填，客户端不可设置）。
+    #[serde(skip_deserializing, default)]
+    pub from_user_id: u64,
+}
+
+/// 撤回好友申请响应。
+///
+/// RPC路由: `contact/friend/recall`
+/// 简单操作，返回 true（成功/失败由协议层 code 处理）。
+pub type FriendRecallResponse = bool;
+
 /// 删除好友响应
 ///
 /// RPC路由: `contact/friend/remove`

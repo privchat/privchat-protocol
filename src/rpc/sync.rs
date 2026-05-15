@@ -433,6 +433,30 @@ pub struct FriendSyncPayload {
     pub friend: Option<FriendSyncFriendPayload>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub user: Option<FriendSyncUserPayload>,
+    // -------- F-sync.1 扩展（friend request 多端同步）--------
+    //
+    // 既有客户端不感知这些字段（全部 Option，缺省即旧行为）；新客户端按 status
+    // 区分"已成立的好友" vs "处于某种请求态的好友申请"。
+    /// 数据库 status 整型值。
+    /// 0=pending / 1=accepted / 2=blocked / 3=rejected / 4=recalled / 5=expired.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<i16>,
+    /// 在当前 viewer 视角下这条记录是否是"我发出的"。
+    /// `true` = viewer 是 requester（friendships.user_id == viewer）；
+    /// `false` = viewer 是 receiver（friendships.friend_id == viewer）。
+    /// status=accepted 时此字段无意义，server 可不填。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_outgoing: Option<bool>,
+    /// 申请附言（apply 时由 requester 填，常驻原行直到清理）。pending 列表 UI 用。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_message: Option<String>,
+    /// 申请来源类型（"search" / "phone" / "qrcode" / "group" / "card_share" /
+    /// "conversation" 等，见 model::privacy::FriendRequestSource）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_source: Option<String>,
+    /// 来源 ID（如 channel_id / group_id / 搜索 session_id 等）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_source_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
