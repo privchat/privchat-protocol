@@ -47,6 +47,8 @@ pub mod presence;
 pub mod qr_login;
 pub mod qrcode;
 pub mod routes;
+/// 个人名片二维码 RPC（QR_CODE_SPEC v1.3，与遗留 qrcode/* 模块解耦）
+pub mod user_qrcode;
 pub mod sticker;
 pub mod sync;
 
@@ -65,3 +67,9 @@ pub use qr_login::*;
 pub use qrcode::*;
 pub use sticker::*;
 pub use sync::*;
+// QR_CODE_SPEC v1.3 — 显式列出，避免与遗留 `qrcode::UserQRCode*` 同名冲突；
+// 遗留 generic 路径下的 UserQRCode* 类型仍由 `qrcode::*` glob 提供（FFI 还在用），
+// 等下游消费者迁完再删。
+pub use user_qrcode::{
+    UserQRCodeResolveRequest, UserQRCodeResolveResponse,
+};

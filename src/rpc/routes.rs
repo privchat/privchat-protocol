@@ -129,12 +129,19 @@ pub mod group_approval {
     pub const HANDLE: &str = "group/approval/handle";
 }
 
-/// 群组二维码路由
+/// 群组二维码路由（QR_CODE_SPEC v1.3）
+///
+/// 设计：`qr_key` 是 `privchat_groups.qr_key` 字段（UNIQUE NOT NULL，
+/// 永久），不再有 `generate` 动作 —— 群创建时自动产生，Owner/Admin 可
+/// 主动 `refresh`。
 pub mod group_qrcode {
-    /// 生成群组二维码
-    pub const GENERATE: &str = "group/qrcode/generate";
+    /// 读取当前群二维码（Member 及以上可见）
+    pub const GET: &str = "group/qrcode/get";
 
-    /// 通过二维码加入群组
+    /// 旋转群二维码（Owner/Admin only）
+    pub const REFRESH: &str = "group/qrcode/refresh";
+
+    /// 通过扫码 `qrkey` 请求加入群组（走 join_need_approval 流程）
     pub const JOIN: &str = "group/join/qrcode";
 }
 
@@ -344,16 +351,20 @@ pub mod qrcode {
     pub const LIST: &str = "qrcode/list";
 }
 
-/// 用户二维码路由
+/// 个人名片二维码路由（QR_CODE_SPEC v1.3）
+///
+/// 设计：`qr_key` 是 `privchat_users.qr_key` 字段（UNIQUE NOT NULL，
+/// 永久），不再有 `generate` 动作 —— 注册时自动产生，用户可主动
+/// `refresh`。新增 `resolve` 供扫码端把对端的 qrkey 翻成用户卡片。
 pub mod user_qrcode {
-    /// 生成用户二维码
-    pub const GENERATE: &str = "user/qrcode/generate";
+    /// 读取当前用户的名片二维码
+    pub const GET: &str = "user/qrcode/get";
 
-    /// 刷新用户二维码
+    /// 旋转当前用户的名片二维码
     pub const REFRESH: &str = "user/qrcode/refresh";
 
-    /// 获取用户二维码
-    pub const GET: &str = "user/qrcode/get";
+    /// 解析对端的 qrkey，返回最小用户卡片
+    pub const RESOLVE: &str = "user/qrcode/resolve";
 }
 
 /// 同步机制路由
