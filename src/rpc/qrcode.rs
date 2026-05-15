@@ -85,34 +85,9 @@ pub struct QRCodeListRequest {
     pub include_revoked: bool,
 }
 
-/// 生成用户二维码请求
-///
-/// RPC路由: `user/qrcode/generate`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserQRCodeGenerateRequest {
-    /// 过期时间（秒）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub expire_seconds: Option<u64>,
-    /// 用户ID（服务器端填充）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
-}
-
-/// 刷新用户二维码请求
-///
-/// RPC路由: `user/qrcode/refresh`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserQRCodeRefreshRequest {
-    pub user_id: String,
-}
-
-/// 获取用户二维码请求
-///
-/// RPC路由: `user/qrcode/get`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserQRCodeGetRequest {
-    pub user_id: String,
-}
+// QR_CODE_SPEC v1.3：legacy `UserQRCodeGenerateRequest` / `UserQRCodeRefreshRequest`
+// / `UserQRCodeGetRequest` 已删除，请改用 `super::user_qrcode::*` 下的 v1.3 类型。
+// 这里只保留 generic `QRCode*` 类型（Auth qrcode 仍在用）。
 
 /// 二维码条目
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -188,28 +163,5 @@ pub struct QRCodeListResponse {
     pub total: usize,
 }
 
-/// 生成用户二维码响应
-///
-/// RPC路由: `user/qrcode/generate`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserQRCodeGenerateResponse {
-    pub qr_key: String,
-    pub qr_code: String,
-    pub created_at: u64,
-}
-
-/// 刷新用户二维码响应
-///
-/// RPC路由: `user/qrcode/refresh`
-pub type UserQRCodeRefreshResponse = QRCodeRefreshResponse;
-
-/// 获取用户二维码响应
-///
-/// RPC路由: `user/qrcode/get`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct UserQRCodeGetResponse {
-    pub qr_key: String,
-    pub qr_code: String,
-    pub created_at: u64,
-    pub used_count: u32,
-}
+// QR_CODE_SPEC v1.3：legacy `UserQRCodeGenerateResponse` / `UserQRCodeRefreshResponse`
+// / `UserQRCodeGetResponse` 已删除，请改用 `super::user_qrcode::*` 下的 v1.3 类型。
