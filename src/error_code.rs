@@ -284,7 +284,7 @@ pub enum ErrorCode {
     /// Full rebuild required before resume can continue
     SyncFullRebuildRequired = 20902,
 
-    // Bot Follow (20920-20929) — spec 02-server/SERVICE_ACCOUNT_FOLLOW_SPEC §6
+    // Bot Follow (20920-20929) — spec 02-server/SERVER_EVENT_DISPATCH_SPEC §11
     /// `bot_user_id` does not exist
     BotNotFound = 20920,
     /// Target `user_type != 2` (not a Bot)
@@ -293,6 +293,11 @@ pub enum ErrorCode {
     BotDisabled = 20922,
     /// Bot follow rate limit exceeded (reserved; v1 not enforced)
     BotFollowRateLimited = 20923,
+
+    // System User (21000-21099) — spec 07-application/SYSTEM_USER_SPEC §4
+    /// System User (`user_type=1`) cannot be added to group; rejected by
+    /// `group/create` initial_members, `group/member/add`, and QR-join fallback
+    SystemUserNotGroupInvitable = 21001,
 }
 
 impl ErrorCode {
@@ -420,6 +425,7 @@ impl ErrorCode {
             Self::NotABot => "Target user is not a Bot",
             Self::BotDisabled => "Bot is disabled",
             Self::BotFollowRateLimited => "Bot follow rate limited",
+            Self::SystemUserNotGroupInvitable => "System user cannot be added to group",
         }
     }
 
@@ -542,6 +548,7 @@ impl ErrorCode {
             20921 => Some(Self::NotABot),
             20922 => Some(Self::BotDisabled),
             20923 => Some(Self::BotFollowRateLimited),
+            21001 => Some(Self::SystemUserNotGroupInvitable),
 
             _ => None,
         }
@@ -610,6 +617,7 @@ mod tests {
         assert_eq!(ErrorCode::NotABot.code(), 20921);
         assert_eq!(ErrorCode::BotDisabled.code(), 20922);
         assert_eq!(ErrorCode::BotFollowRateLimited.code(), 20923);
+        assert_eq!(ErrorCode::SystemUserNotGroupInvitable.code(), 21001);
     }
 
     #[test]
