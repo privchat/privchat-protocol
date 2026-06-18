@@ -90,6 +90,12 @@ pub struct FileGetUrlResponse {
     pub expires_at: i64,
     pub file_size: u64,
     pub mime_type: String,
+    /// 附件加密版本：0=明文 legacy；1=AES-256-GCM（客户端解密）。缺省=0。
+    #[serde(default)]
+    pub encryption_version: i32,
+    /// CEK（base64url 32B）；nonce 在密文 blob 头部。version=0 时 None。绝不进 URL/日志。
+    #[serde(default)]
+    pub cek: Option<String>,
 }
 
 /// 上传回调响应
