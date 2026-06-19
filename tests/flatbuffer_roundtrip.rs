@@ -825,3 +825,46 @@ fn enum_zero_is_unknown() {
     assert_eq!(DisconnectReason::Unknown as u8, 0);
     assert_eq!(MessageType::Unknown as u8, 0);
 }
+
+// ---------------------------------------------------------------------------
+// REAL outbound send path: legacy attachment JSON (as SDK builds it) ->
+// from_legacy -> encode -> decode -> typed metadata MUST retain file_id +
+// thumbnail_file_id. This mirrors process_outbound_file exactly and guards the
+// 20006 MessageContentInvalid failure mode (server can't find file_id).
+// ---------------------------------------------------------------------------
+#[test]
+fn outbound_image_legacy_json_preserves_file_id_through_wire() {
+    use privchat_protocol::message::{ContentMessageType, LocalMessagePayloadEnvelope};
+
+    // Exactly the shape SDK's process_outbound_file puts in attachment_content.
+    let attachment = serde_json::json!({
+        "file_type": "image",
+        "file_id": 166u64,
+        "thumbnail_file_id": 165u64,
+        "filename": "x.jpg",
+        "mime_type": "image/jpeg",
+        "storage_source_id": 0,
+        "file_size": 1852262u64,
+        "file_url": "http://127.0.0.1:8000/images/166.jpg",
+        "thumbnail_url": "http://127.0.0.1:8000/images/165.webp"
+    });
+    let legacy = LocalMessagePayloadEnvelope {
+        content: "[image]".to_string(),
+        metadata: Some(attachment),
+        reply_to_message_id: None,
+        mentioned_user_ids: None,
+        message_source: None,
+    };
+
+    let typed = MessagePayloadEnvelope::from_legacy(&legacy, ContentMessageType::Image);
+    let bytes = encode_message(&typed).expect("encode");
+    let decoded = decode_message::<MessagePayloadEnvelope>(&bytes).expect("decode");
+
+    match decoded.metadata {
+        Some(MessageMetadata::Image(img)) => {
+            assert_eq!(img.file_id, 166, "main file_id must survive the real send path");
+            assert_eq!(img.thumbnail_file_id, Some(165), "thumbnail_file_id must survive");
+        }
+        other => panic!("expected Image metadata with file_id, got {:?}", other),
+    }
+}

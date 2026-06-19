@@ -19,7 +19,12 @@ use serde::{Deserialize, Serialize};
 pub struct ImageMetadata {
     pub file_id: u64,
     pub url: Option<String>,
+    // width/height 由发送端可选填（SDK 的 attachment_content 不一定带）。必须 #[serde(default)]，
+    // 否则 from_json_value(Image, attachment_json) 因缺字段失败 → metadata=None → 服务端
+    // 校验报 20006 MessageContentInvalid。file_id 仍必填。
+    #[serde(default)]
     pub width: u32,
+    #[serde(default)]
     pub height: u32,
     /// 缩略图独立 file_id（0/None=无）。接收端走 `thumbnail_file_id -> file/get_url -> cek`
     /// 下载解密，与主文件同一流程。CEK 不进 metadata。
@@ -39,14 +44,18 @@ pub struct FileMetadata {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VoiceMetadata {
     pub file_id: u64,
+    #[serde(default)]
     pub duration: u32,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct VideoMetadata {
     pub file_id: u64,
+    #[serde(default)]
     pub duration: u32,
+    #[serde(default)]
     pub width: u32,
+    #[serde(default)]
     pub height: u32,
     pub thumbnail_file_id: Option<u64>,
     pub thumbnail_width: Option<u32>,
