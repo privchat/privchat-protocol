@@ -21,6 +21,13 @@ pub struct ImageMetadata {
     pub url: Option<String>,
     pub width: u32,
     pub height: u32,
+    /// 缩略图独立 file_id（0/None=无）。接收端走 `thumbnail_file_id -> file/get_url -> cek`
+    /// 下载解密，与主文件同一流程。CEK 不进 metadata。
+    #[serde(default)]
+    pub thumbnail_file_id: Option<u64>,
+    /// legacy 明文缩略图 url；v1 加密附件无此字段，仅历史明文 fallback。
+    #[serde(default)]
+    pub thumbnail_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -44,12 +51,21 @@ pub struct VideoMetadata {
     pub thumbnail_file_id: Option<u64>,
     pub thumbnail_width: Option<u32>,
     pub thumbnail_height: Option<u32>,
+    /// legacy 明文缩略图 url；v1 加密走 thumbnail_file_id -> file/get_url -> cek。
+    #[serde(default)]
+    pub thumbnail_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct LocationMetadata {
     pub latitude: f64,
     pub longitude: f64,
+    pub coordinate_system: Option<String>,
+    pub name: Option<String>,
+    pub address: Option<String>,
+    pub poi_id: Option<String>,
+    pub poi_source: Option<String>,
+    pub thumbnail_file_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -265,6 +281,7 @@ fn encode_image<'a>(
     m: &ImageMetadata,
 ) -> flatbuffers::WIPOffset<fb::ImageMetadata<'a>> {
     let url = m.url.as_ref().map(|s| builder.create_string(s));
+    let thumbnail_url = m.thumbnail_url.as_ref().map(|s| builder.create_string(s));
     fb::ImageMetadata::create(
         builder,
         &fb::ImageMetadataArgs {
@@ -272,15 +289,20 @@ fn encode_image<'a>(
             url,
             width: m.width,
             height: m.height,
+            thumbnail_file_id: m.thumbnail_file_id.unwrap_or(0),
+            thumbnail_url,
         },
     )
 }
 fn decode_image(v: fb::ImageMetadata<'_>) -> ImageMetadata {
+    let thumb_id = v.thumbnail_file_id();
     ImageMetadata {
         file_id: v.file_id(),
         url: v.url().map(|s| s.to_string()),
         width: v.width(),
         height: v.height(),
+        thumbnail_file_id: if thumb_id == 0 { None } else { Some(thumb_id) },
+        thumbnail_url: v.thumbnail_url().map(|s| s.to_string()),
     }
 }
 
@@ -324,6 +346,7 @@ fn encode_video<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &VideoMetadata,
 ) -> flatbuffers::WIPOffset<fb::VideoMetadata<'a>> {
+    let thumbnail_url = m.thumbnail_url.as_ref().map(|s| builder.create_string(s));
     fb::VideoMetadata::create(
         builder,
         &fb::VideoMetadataArgs {
@@ -334,6 +357,7 @@ fn encode_video<'a>(
             thumbnail_file_id: m.thumbnail_file_id.unwrap_or(0),
             thumbnail_width: m.thumbnail_width.unwrap_or(0),
             thumbnail_height: m.thumbnail_height.unwrap_or(0),
+            thumbnail_url,
         },
     )
 }
@@ -348,6 +372,7 @@ fn decode_video(v: fb::VideoMetadata<'_>) -> VideoMetadata {
         thumbnail_file_id: to_opt_u64(v.thumbnail_file_id()),
         thumbnail_width: to_opt_u32(v.thumbnail_width()),
         thumbnail_height: to_opt_u32(v.thumbnail_height()),
+        thumbnail_url: v.thumbnail_url().map(|s| s.to_string()),
     }
 }
 
@@ -355,18 +380,39 @@ fn encode_location<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &LocationMetadata,
 ) -> flatbuffers::WIPOffset<fb::LocationMetadata<'a>> {
+    let coordinate_system = m.coordinate_system.as_ref().map(|s| builder.create_string(s));
+    let name = m.name.as_ref().map(|s| builder.create_string(s));
+    let address = m.address.as_ref().map(|s| builder.create_string(s));
+    let poi_id = m.poi_id.as_ref().map(|s| builder.create_string(s));
+    let poi_source = m.poi_source.as_ref().map(|s| builder.create_string(s));
     fb::LocationMetadata::create(
         builder,
         &fb::LocationMetadataArgs {
             latitude: m.latitude,
             longitude: m.longitude,
+            coordinate_system,
+            name,
+            address,
+            poi_id,
+            poi_source,
+            thumbnail_file_id: m.thumbnail_file_id.unwrap_or(0),
         },
     )
 }
 fn decode_location(v: fb::LocationMetadata<'_>) -> LocationMetadata {
+    let thumbnail_file_id = match v.thumbnail_file_id() {
+        0 => None,
+        n => Some(n),
+    };
     LocationMetadata {
         latitude: v.latitude(),
         longitude: v.longitude(),
+        coordinate_system: v.coordinate_system().map(|s| s.to_string()),
+        name: v.name().map(|s| s.to_string()),
+        address: v.address().map(|s| s.to_string()),
+        poi_id: v.poi_id().map(|s| s.to_string()),
+        poi_source: v.poi_source().map(|s| s.to_string()),
+        thumbnail_file_id,
     }
 }
 

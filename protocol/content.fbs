@@ -19,9 +19,14 @@ namespace privchat.protocol;
 
 table ImageMetadata {
   file_id : ulong;
-  url     : string;     // optional CDN url
+  url     : string;     // optional CDN url (legacy plaintext fallback)
   width   : uint;
   height  : uint;
+  // 附件加密 v1：缩略图也是独立 file，走 thumbnail_file_id -> file/get_url -> cek
+  // 统一下载解密。CEK 永不进 metadata。thumbnail_url 仅 legacy 明文 fallback。
+  // (appended at table end for FlatBuffers forward/backward compat — do not reorder)
+  thumbnail_file_id : ulong;   // 0 = absent
+  thumbnail_url     : string;  // legacy plaintext thumbnail url; absent for v1
 }
 
 table FileMetadata {
@@ -45,11 +50,19 @@ table VideoMetadata {
   thumbnail_file_id  : ulong;    // 0 = absent
   thumbnail_width    : uint;     // 0 = absent
   thumbnail_height   : uint;     // 0 = absent
+  // 缩略图走 thumbnail_file_id -> file/get_url -> cek（同主文件）。url 仅 legacy fallback。
+  thumbnail_url      : string;   // legacy plaintext thumbnail url; absent for v1
 }
 
 table LocationMetadata {
-  latitude  : double;
-  longitude : double;
+  latitude            : double;
+  longitude           : double;
+  coordinate_system   : string;  // wgs84 / gcj02 / bd09; optional for legacy messages
+  name                : string;  // POI name selected by sender
+  address             : string;
+  poi_id              : string;
+  poi_source          : string;  // apple / google / amap / baidu / tencent / custom
+  thumbnail_file_id   : ulong;   // 0 = absent; generated/uploaded by sender
 }
 
 table ContactCardMetadata {

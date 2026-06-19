@@ -474,6 +474,8 @@ fn payload_envelope_image_metadata_roundtrip() {
             url: Some("https://cdn.example/x.jpg".to_string()),
             width: 1920,
             height: 1080,
+            thumbnail_file_id: Some(67890),
+            thumbnail_url: Some("https://cdn.example/x_thumb.jpg".to_string()),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -486,6 +488,35 @@ fn payload_envelope_image_metadata_roundtrip() {
             assert_eq!(img.url.as_deref(), Some("https://cdn.example/x.jpg"));
             assert_eq!(img.width, 1920);
             assert_eq!(img.height, 1080);
+            // 缩略图引用必须过 wire（Scheme B：thumbnail_file_id -> get_url -> cek）。
+            assert_eq!(img.thumbnail_file_id, Some(67890));
+            assert_eq!(img.thumbnail_url.as_deref(), Some("https://cdn.example/x_thumb.jpg"));
+        }
+        other => panic!("expected Image metadata, got {:?}", other),
+    }
+}
+
+#[test]
+fn payload_envelope_image_metadata_no_thumbnail_roundtrip() {
+    // v1 加密附件可能没有 legacy thumbnail_url；thumbnail_file_id 缺省也要 round-trip 成 None。
+    let env = MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::Image(ImageMetadata {
+            file_id: 1,
+            url: None,
+            width: 10,
+            height: 10,
+            thumbnail_file_id: None,
+            thumbnail_url: None,
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    };
+    match roundtrip(&env).metadata {
+        Some(MessageMetadata::Image(img)) => {
+            assert_eq!(img.thumbnail_file_id, None);
+            assert_eq!(img.thumbnail_url, None);
         }
         other => panic!("expected Image metadata, got {:?}", other),
     }
@@ -522,6 +553,7 @@ fn payload_envelope_video_metadata_roundtrip() {
             thumbnail_file_id: Some(5556),
             thumbnail_width: Some(320),
             thumbnail_height: Some(180),
+            thumbnail_url: Some("https://cdn.example/v_thumb.jpg".to_string()),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -536,6 +568,7 @@ fn payload_envelope_video_metadata_roundtrip() {
             assert_eq!(v.thumbnail_file_id, Some(5556));
             assert_eq!(v.thumbnail_width, Some(320));
             assert_eq!(v.thumbnail_height, Some(180));
+            assert_eq!(v.thumbnail_url.as_deref(), Some("https://cdn.example/v_thumb.jpg"));
         }
         other => panic!("expected Video metadata, got {:?}", other),
     }
@@ -551,6 +584,7 @@ fn payload_envelope_video_metadata_roundtrip() {
             thumbnail_file_id: None,
             thumbnail_width: None,
             thumbnail_height: None,
+            thumbnail_url: None,
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -560,6 +594,7 @@ fn payload_envelope_video_metadata_roundtrip() {
     if let Some(MessageMetadata::Video(v)) = got2.metadata {
         assert_eq!(v.thumbnail_file_id, None);
         assert_eq!(v.thumbnail_width, None);
+        assert_eq!(v.thumbnail_url, None);
     } else {
         panic!("expected Video metadata");
     }
@@ -588,6 +623,12 @@ fn payload_envelope_location_metadata_roundtrip() {
         metadata: Some(MessageMetadata::Location(LocationMetadata {
             latitude: 31.2304,
             longitude: 121.4737,
+            coordinate_system: None,
+            name: None,
+            address: None,
+            poi_id: None,
+            poi_source: None,
+            thumbnail_file_id: None,
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -597,6 +638,41 @@ fn payload_envelope_location_metadata_roundtrip() {
     if let Some(MessageMetadata::Location(loc)) = got.metadata {
         assert!((loc.latitude - 31.2304).abs() < 1e-9);
         assert!((loc.longitude - 121.4737).abs() < 1e-9);
+        assert_eq!(loc.coordinate_system, None);
+        assert_eq!(loc.thumbnail_file_id, None);
+    } else {
+        panic!("expected Location");
+    }
+}
+
+#[test]
+fn payload_envelope_location_extended_metadata_roundtrip() {
+    let env = MessagePayloadEnvelope {
+        content: "Starbucks".to_string(),
+        metadata: Some(MessageMetadata::Location(LocationMetadata {
+            latitude: 39.9087,
+            longitude: 116.3975,
+            coordinate_system: Some("gcj02".to_string()),
+            name: Some("Starbucks Guomao".to_string()),
+            address: Some("Beijing CBD".to_string()),
+            poi_id: Some("amap-poi-1".to_string()),
+            poi_source: Some("amap".to_string()),
+            thumbnail_file_id: Some(8848),
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    };
+    let got = roundtrip(&env);
+    if let Some(MessageMetadata::Location(loc)) = got.metadata {
+        assert!((loc.latitude - 39.9087).abs() < 1e-9);
+        assert!((loc.longitude - 116.3975).abs() < 1e-9);
+        assert_eq!(loc.coordinate_system.as_deref(), Some("gcj02"));
+        assert_eq!(loc.name.as_deref(), Some("Starbucks Guomao"));
+        assert_eq!(loc.address.as_deref(), Some("Beijing CBD"));
+        assert_eq!(loc.poi_id.as_deref(), Some("amap-poi-1"));
+        assert_eq!(loc.poi_source.as_deref(), Some("amap"));
+        assert_eq!(loc.thumbnail_file_id, Some(8848));
     } else {
         panic!("expected Location");
     }
