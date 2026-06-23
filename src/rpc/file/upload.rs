@@ -90,6 +90,10 @@ pub struct FileGetUrlResponse {
     pub expires_at: i64,
     pub file_size: u64,
     pub mime_type: String,
+    /// 原始文件名（file 表数据，Scheme B：filename/size/mime 均由 get_url 下发，
+    /// 不进消息 typed metadata）。缺省=空串。
+    #[serde(default)]
+    pub original_filename: String,
     /// 附件加密版本：0=明文 legacy；1=AES-256-GCM（客户端解密）。缺省=0。
     #[serde(default)]
     pub encryption_version: i32,
