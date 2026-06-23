@@ -27,10 +27,18 @@ table ImageMetadata {
   // (appended at table end for FlatBuffers forward/backward compat — do not reorder)
   thumbnail_file_id : ulong;   // 0 = absent
   thumbnail_url     : string;  // legacy plaintext thumbnail url; absent for v1
+  file_name         : string;  // 原文件名（图片一般不展示，保留以备转发/下载）；CEK 不进 metadata
 }
 
+/// 文件展示语义随消息协议传输（file_id + file_name + size + mime 构成完整文件引用）：
+/// 离线/历史/搜索/转发/通知预览都直接用，不靠 file/get_url 异步查。下载仍走
+/// file_id -> file/get_url -> signed_url + cek。CEK 永不进 metadata。
 table FileMetadata {
   file_id : ulong;
+  // (appended at table end for FlatBuffers forward/backward compat — do not reorder)
+  file_name : string;
+  file_size : ulong;     // bytes; 0 = absent
+  mime_type : string;
 }
 
 /// Voice/audio bubble metadata. Distinct from FileMetadata because the
@@ -38,6 +46,7 @@ table FileMetadata {
 table VoiceMetadata {
   file_id  : ulong;
   duration : uint;       // seconds; client rounds sub-1s up to 1
+  file_name : string;    // 原文件名（展示用，可选）
 }
 
 /// Video metadata; thumbnail fields are optional (client falls back to
@@ -52,6 +61,7 @@ table VideoMetadata {
   thumbnail_height   : uint;     // 0 = absent
   // 缩略图走 thumbnail_file_id -> file/get_url -> cek（同主文件）。url 仅 legacy fallback。
   thumbnail_url      : string;   // legacy plaintext thumbnail url; absent for v1
+  file_name          : string;   // 原文件名（作为文件发送时展示用，可选）
 }
 
 table LocationMetadata {

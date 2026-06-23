@@ -33,11 +33,22 @@ pub struct ImageMetadata {
     /// legacy 明文缩略图 url；v1 加密附件无此字段，仅历史明文 fallback。
     #[serde(default)]
     pub thumbnail_url: Option<String>,
+    /// 原文件名（图片一般不展示，保留以备转发/下载）。
+    #[serde(default, alias = "filename")]
+    pub file_name: Option<String>,
 }
 
+/// 文件展示语义随协议传输：file_id + file_name + size + mime 构成完整文件引用，
+/// 离线/历史/搜索/转发/通知都直接用；下载仍走 file_id -> file/get_url -> cek。CEK 不进 metadata。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileMetadata {
     pub file_id: u64,
+    #[serde(default, alias = "filename")]
+    pub file_name: Option<String>,
+    #[serde(default)]
+    pub file_size: u64,
+    #[serde(default)]
+    pub mime_type: Option<String>,
 }
 
 /// Voice/audio bubble metadata. `duration` drives UI bubble width.
@@ -46,6 +57,8 @@ pub struct VoiceMetadata {
     pub file_id: u64,
     #[serde(default)]
     pub duration: u32,
+    #[serde(default, alias = "filename")]
+    pub file_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -63,6 +76,9 @@ pub struct VideoMetadata {
     /// legacy 明文缩略图 url；v1 加密走 thumbnail_file_id -> file/get_url -> cek。
     #[serde(default)]
     pub thumbnail_url: Option<String>,
+    /// 原文件名（作为文件发送时展示用）。
+    #[serde(default, alias = "filename")]
+    pub file_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -291,6 +307,7 @@ fn encode_image<'a>(
 ) -> flatbuffers::WIPOffset<fb::ImageMetadata<'a>> {
     let url = m.url.as_ref().map(|s| builder.create_string(s));
     let thumbnail_url = m.thumbnail_url.as_ref().map(|s| builder.create_string(s));
+    let file_name = m.file_name.as_ref().map(|s| builder.create_string(s));
     fb::ImageMetadata::create(
         builder,
         &fb::ImageMetadataArgs {
@@ -300,6 +317,7 @@ fn encode_image<'a>(
             height: m.height,
             thumbnail_file_id: m.thumbnail_file_id.unwrap_or(0),
             thumbnail_url,
+            file_name,
         },
     )
 }
@@ -312,6 +330,7 @@ fn decode_image(v: fb::ImageMetadata<'_>) -> ImageMetadata {
         height: v.height(),
         thumbnail_file_id: if thumb_id == 0 { None } else { Some(thumb_id) },
         thumbnail_url: v.thumbnail_url().map(|s| s.to_string()),
+        file_name: v.file_name().map(|s| s.to_string()),
     }
 }
 
@@ -319,16 +338,24 @@ fn encode_file<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &FileMetadata,
 ) -> flatbuffers::WIPOffset<fb::FileMetadata<'a>> {
+    let file_name = m.file_name.as_ref().map(|s| builder.create_string(s));
+    let mime_type = m.mime_type.as_ref().map(|s| builder.create_string(s));
     fb::FileMetadata::create(
         builder,
         &fb::FileMetadataArgs {
             file_id: m.file_id,
+            file_name,
+            file_size: m.file_size,
+            mime_type,
         },
     )
 }
 fn decode_file(v: fb::FileMetadata<'_>) -> FileMetadata {
     FileMetadata {
         file_id: v.file_id(),
+        file_name: v.file_name().map(|s| s.to_string()),
+        file_size: v.file_size(),
+        mime_type: v.mime_type().map(|s| s.to_string()),
     }
 }
 
@@ -336,11 +363,13 @@ fn encode_voice<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &VoiceMetadata,
 ) -> flatbuffers::WIPOffset<fb::VoiceMetadata<'a>> {
+    let file_name = m.file_name.as_ref().map(|s| builder.create_string(s));
     fb::VoiceMetadata::create(
         builder,
         &fb::VoiceMetadataArgs {
             file_id: m.file_id,
             duration: m.duration,
+            file_name,
         },
     )
 }
@@ -348,6 +377,7 @@ fn decode_voice(v: fb::VoiceMetadata<'_>) -> VoiceMetadata {
     VoiceMetadata {
         file_id: v.file_id(),
         duration: v.duration(),
+        file_name: v.file_name().map(|s| s.to_string()),
     }
 }
 
@@ -356,6 +386,7 @@ fn encode_video<'a>(
     m: &VideoMetadata,
 ) -> flatbuffers::WIPOffset<fb::VideoMetadata<'a>> {
     let thumbnail_url = m.thumbnail_url.as_ref().map(|s| builder.create_string(s));
+    let file_name = m.file_name.as_ref().map(|s| builder.create_string(s));
     fb::VideoMetadata::create(
         builder,
         &fb::VideoMetadataArgs {
@@ -367,6 +398,7 @@ fn encode_video<'a>(
             thumbnail_width: m.thumbnail_width.unwrap_or(0),
             thumbnail_height: m.thumbnail_height.unwrap_or(0),
             thumbnail_url,
+            file_name,
         },
     )
 }
@@ -382,6 +414,7 @@ fn decode_video(v: fb::VideoMetadata<'_>) -> VideoMetadata {
         thumbnail_width: to_opt_u32(v.thumbnail_width()),
         thumbnail_height: to_opt_u32(v.thumbnail_height()),
         thumbnail_url: v.thumbnail_url().map(|s| s.to_string()),
+        file_name: v.file_name().map(|s| s.to_string()),
     }
 }
 
