@@ -505,6 +505,10 @@ pub struct ChannelSyncPayload {
     pub top: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mute: Option<i32>,
+    /// DM 会话的对端用户 ID。仅私聊（channel_type == Direct）设置，群聊为空。
+    /// 客户端据此持久化 channel.peer_user_id 并用于 presence 直查。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub peer_user_id: Option<u64>,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
