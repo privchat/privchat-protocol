@@ -149,6 +149,10 @@ pub mod group_qrcode {
 pub mod message {
     /// 撤回消息
     pub const REVOKE: &str = "message/revoke";
+    /// 置顶 / 取消置顶群消息（仅群主/管理员）
+    pub const PIN: &str = "message/pin";
+    /// 获取群置顶消息列表
+    pub const PIN_LIST: &str = "message/pin/list";
 }
 
 /// 消息历史路由

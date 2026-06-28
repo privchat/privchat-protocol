@@ -18,6 +18,16 @@
 /// 群组设置相关 RPC
 use serde::{Deserialize, Serialize};
 
+/// serde 默认值：true（新群字段对老客户端/老数据缺省按宽松处理）
+fn default_true() -> bool {
+    true
+}
+
+/// serde 默认值：加入策略默认 1（允许申请，需审核）
+fn default_join_policy() -> u8 {
+    1
+}
+
 /// 更新群组设置请求
 ///
 /// RPC路由: `group/settings/update`
@@ -29,6 +39,16 @@ pub struct GroupSettingsPatch {
     /// 成员是否可邀请（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub member_can_invite: Option<bool>,
+    /// 群成员之间是否允许私自加好友（可选）。
+    /// false 时，仅 `source=group` 来源的好友申请受限；群主/管理员、已是好友不受影响。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_member_add_friend: Option<bool>,
+    /// 群是否允许被搜索发现（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_search: Option<bool>,
+    /// 加入策略（可选）：0=不允许申请加入 1=允许申请需审核 2=允许直接加入
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub join_policy: Option<u8>,
     /// 是否全员禁言（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub all_muted: Option<bool>,
@@ -100,6 +120,15 @@ pub struct GroupSettingsUpdateResponse {
 pub struct GroupSettingsData {
     pub join_need_approval: bool,
     pub member_can_invite: bool,
+    /// 群成员之间是否允许私自加好友（默认 true）
+    #[serde(default = "default_true")]
+    pub allow_member_add_friend: bool,
+    /// 群是否允许被搜索发现（默认 true）
+    #[serde(default = "default_true")]
+    pub allow_search: bool,
+    /// 加入策略：0=不允许申请加入 1=允许申请需审核 2=允许直接加入（默认 1）
+    #[serde(default = "default_join_policy")]
+    pub join_policy: u8,
     pub all_muted: bool,
     pub max_members: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
