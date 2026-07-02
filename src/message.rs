@@ -67,6 +67,11 @@ pub enum ContentMessageType {
     Location = 8,
     Link = 9,
     Forward = 10,
+    /// 红包（PrivChat Money Message，PLATFORM-only）。payload 只带 redPacketId + 展示快照；
+    /// 资金真相在 application/payment。SDK 只搬运消息不碰资金。见 RED_PACKET_AND_TRANSFER_DESIGN_SPEC。
+    RedPacket = 11,
+    /// 转账（PrivChat Money Message，PLATFORM-only）。payload 只带 transferId + 展示快照。
+    MoneyTransfer = 12,
 }
 
 impl ContentMessageType {
@@ -83,6 +88,8 @@ impl ContentMessageType {
             8 => Some(ContentMessageType::Location),
             9 => Some(ContentMessageType::Link),
             10 => Some(ContentMessageType::Forward),
+            11 => Some(ContentMessageType::RedPacket),
+            12 => Some(ContentMessageType::MoneyTransfer),
             _ => None,
         }
     }
@@ -104,6 +111,8 @@ impl ContentMessageType {
             ContentMessageType::Location => "location",
             ContentMessageType::Link => "link",
             ContentMessageType::Forward => "forward",
+            ContentMessageType::RedPacket => "red_packet",
+            ContentMessageType::MoneyTransfer => "money_transfer",
         }
     }
 }

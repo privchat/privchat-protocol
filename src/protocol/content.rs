@@ -197,6 +197,9 @@ impl MessageMetadata {
         use crate::message::ContentMessageType::*;
         match content_type {
             Text | System => None,
+            // Money Message：payload 是引用 + 展示快照（不透明 JSON），SDK 不解析成 typed metadata
+            // （只搬运，资金真相在 application/payment）。渲染由产品端按快照做。
+            RedPacket | MoneyTransfer => None,
             Image => serde_json::from_value(value.clone())
                 .ok()
                 .map(MessageMetadata::Image),
