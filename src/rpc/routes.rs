@@ -159,6 +159,12 @@ pub mod message {
 pub mod message_history {
     /// 获取历史消息
     pub const GET: &str = "message/history/get";
+
+    /// 云端历史搜索（用户可见范围，MESSAGE_HISTORY spec §4）
+    pub const SEARCH: &str = "message/history/search";
+
+    /// 消息定位上下文（jump-to-message，spec §5）
+    pub const AROUND: &str = "message/history/around";
 }
 
 /// 消息状态路由
