@@ -98,6 +98,26 @@ impl ContentMessageType {
         self as u32
     }
 
+    /// 反解 [`as_str`]（CODEX-9 D2：server 从 legacy `message_type` 字符串构造 canonical event 用）。
+    pub fn from_str(s: &str) -> Option<Self> {
+        match s {
+            "text" => Some(ContentMessageType::Text),
+            "voice" => Some(ContentMessageType::Voice),
+            "image" => Some(ContentMessageType::Image),
+            "video" => Some(ContentMessageType::Video),
+            "file" => Some(ContentMessageType::File),
+            "system" => Some(ContentMessageType::System),
+            "sticker" => Some(ContentMessageType::Sticker),
+            "contact_card" => Some(ContentMessageType::ContactCard),
+            "location" => Some(ContentMessageType::Location),
+            "link" => Some(ContentMessageType::Link),
+            "forward" => Some(ContentMessageType::Forward),
+            "red_packet" => Some(ContentMessageType::RedPacket),
+            "money_transfer" => Some(ContentMessageType::MoneyTransfer),
+            _ => None,
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             ContentMessageType::Text => "text",

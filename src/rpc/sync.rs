@@ -54,10 +54,7 @@ mod u64_str {
 mod option_u64_str {
     use serde::{de::Error as DeError, Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(
-        value: &Option<u64>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error> {
         match value {
             Some(v) => serializer.serialize_str(&v.to_string()),
             None => serializer.serialize_none(),
@@ -223,12 +220,70 @@ pub struct GetDifferenceResponse {
     pub has_more: bool,
 }
 
+/// 当前 canonical timeline event schema 版本（CODEX-9 D2）。客户端遇**高于自身支持**的版本 →
+/// 整体回退 legacy（`message_type`/`content`），禁止 partial parse。永久递增，只加不改语义。
+pub const CANONICAL_EVENT_SCHEMA_VERSION: u32 = 1;
+
+fn is_zero_u32(v: &u32) -> bool {
+    *v == 0
+}
+
+/// CODEX-9 D2：类型化 canonical timeline event（**additive migration**——与 legacy
+/// `ServerCommit.message_type` / `content` **并存双写**）。新 SDK 优先解析本字段，缺失/未知版本/解码
+/// 失败一律回退 legacy（见 MESSAGE_SPEC §9.0 D2）。realtime 与 `get_difference` 共用此模型
+/// （[SDK_SYNC_RESUME_SPEC R7] canonical parity）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CanonicalTimelineEvent {
+    /// 新消息。内容复用 canonical [`crate::MessagePayloadEnvelope`]（FlatBuffers-canonical，
+    /// **不新造 server JSON 契约**）。`content_type` = [`crate::message::ContentMessageType`] 永久 u32。
+    NewMessage {
+        content_type: u32,
+        envelope: crate::MessagePayloadEnvelope,
+    },
+    /// 撤回既有消息。
+    Revoke {
+        #[serde(with = "u64_str")]
+        target_server_message_id: u64,
+    },
+    /// Reaction 增/删（`added`：true=添加，false=移除）。
+    ReactionChange {
+        #[serde(with = "u64_str")]
+        target_server_message_id: u64,
+        emoji: String,
+        added: bool,
+        #[serde(with = "u64_str")]
+        actor_user_id: u64,
+    },
+}
+
+impl CanonicalTimelineEvent {
+    /// 从 legacy `(message_type, content)` 构造 canonical **NewMessage**（server 双写用）。
+    /// revoke/reaction 由各自路径显式构造。返回 `None` = 无法映射（保留 legacy-only，不阻塞发送）。
+    pub fn new_message_from_legacy(
+        message_type: &str,
+        content: &serde_json::Value,
+    ) -> Option<CanonicalTimelineEvent> {
+        let ct = crate::message::ContentMessageType::from_str(message_type)?;
+        let legacy: crate::message::LocalMessagePayloadEnvelope =
+            serde_json::from_value(content.clone()).ok()?;
+        let envelope = crate::MessagePayloadEnvelope::from_legacy(&legacy, ct);
+        Some(CanonicalTimelineEvent::NewMessage {
+            content_type: ct.as_u32(),
+            envelope,
+        })
+    }
+}
+
 /// 服务器 Commit（权威事实）
 ///
 /// JSON wire: every u64 id (`pts`, `server_msg_id`, `local_message_id`,
 /// `channel_id`, `sender_id`) is a string. `channel_type` (u8),
 /// `message_type` (string), `content` (json), and `server_timestamp`
 /// (i64 millis — well below 2^53 for any plausible date) stay native.
+///
+/// CODEX-9 D2 additive：新增 `canonical_event` / `event_schema_version` 两个 additive 字段，与
+/// legacy `message_type`/`content` **并存**——旧 SDK 忽略未知字段读 legacy，新 SDK 优先 canonical。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerCommit {
     /// pts（per-channel 单调递增）
@@ -240,7 +295,11 @@ pub struct ServerCommit {
     pub server_msg_id: u64,
 
     /// 关联的 local_message_id（如果来自客户端）
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "option_u64_str")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_u64_str"
+    )]
     pub local_message_id: Option<u64>,
 
     /// 频道 ID
@@ -266,6 +325,15 @@ pub struct ServerCommit {
     /// 发送者信息（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_info: Option<SenderInfo>,
+
+    /// CODEX-9 D2 additive：类型化 canonical timeline event。`None` = 未双写（旧 server / 未迁移的
+    /// 构造点）→ 客户端回退 legacy `message_type`/`content`。旧 SDK 忽略此未知字段无感。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub canonical_event: Option<CanonicalTimelineEvent>,
+
+    /// canonical event schema 版本（`0` = 无 canonical）。客户端遇**高于自身支持**的版本 → 回退 legacy。
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub event_schema_version: u32,
 }
 
 /// 发送者信息（简化的用户信息）
@@ -784,5 +852,81 @@ mod tests {
         ));
         assert!(matches!(decision_rejected, ServerDecision::Rejected { .. }));
     }
+}
 
+#[cfg(test)]
+mod canonical_event_tests {
+    use super::*;
+    use serde_json::json;
+
+    // additive（new-client × old-server）：旧 JSON 无 canonical 字段 → 反序列化为 None/0，legacy 完整。
+    #[test]
+    fn legacy_json_deserializes_without_canonical() {
+        let legacy = json!({
+            "pts": "10", "server_msg_id": "999", "channel_id": "5", "channel_type": 1,
+            "message_type": "text", "content": {"content": "hi"},
+            "server_timestamp": 1_700_000_000_000i64, "sender_id": "42"
+        });
+        let c: ServerCommit = serde_json::from_value(legacy).unwrap();
+        assert!(c.canonical_event.is_none());
+        assert_eq!(c.event_schema_version, 0);
+        assert_eq!(c.message_type, "text"); // legacy 完整可用
+    }
+
+    // additive（new × new + old-client 兼容）：带 canonical 的 commit round-trip，且 legacy 字段并存
+    // （旧 SDK 忽略 canonical 未知字段、仍读 legacy message_type/content）。
+    #[test]
+    fn new_commit_with_canonical_roundtrips_and_keeps_legacy() {
+        let ev = CanonicalTimelineEvent::new_message_from_legacy("text", &json!({"content": "hello"}))
+            .unwrap();
+        let c = ServerCommit {
+            pts: 10, server_msg_id: 999, local_message_id: None, channel_id: 5, channel_type: 1,
+            message_type: "text".into(), content: json!({"content": "hello"}),
+            server_timestamp: 1_700_000_000_000, sender_id: 42, sender_info: None,
+            canonical_event: Some(ev.clone()), event_schema_version: CANONICAL_EVENT_SCHEMA_VERSION,
+        };
+        let s = serde_json::to_value(&c).unwrap();
+        assert_eq!(s["message_type"], "text"); // legacy 仍在（旧客户端可读）
+        assert_eq!(s["content"]["content"], "hello");
+        assert_eq!(s["event_schema_version"], 1); // canonical 也在
+        assert_eq!(s["canonical_event"]["kind"], "new_message");
+        let back: ServerCommit = serde_json::from_value(s).unwrap();
+        assert_eq!(back.canonical_event, Some(ev));
+        assert_eq!(back.event_schema_version, 1);
+    }
+
+    // mapper：image content+metadata → typed NewMessage（复用 MessagePayloadEnvelope::from_legacy）。
+    #[test]
+    fn mapper_builds_new_message_for_media() {
+        let content = json!({"content": "caption", "metadata": {"file_id": 123, "width": 800}});
+        let ev = CanonicalTimelineEvent::new_message_from_legacy("image", &content).unwrap();
+        match ev {
+            CanonicalTimelineEvent::NewMessage { content_type, envelope } => {
+                assert_eq!(content_type, crate::message::ContentMessageType::Image.as_u32());
+                assert_eq!(envelope.content, "caption");
+            }
+            other => panic!("expected NewMessage, got {other:?}"),
+        }
+    }
+
+    // Revoke / ReactionChange round-trip（tagged enum）。
+    #[test]
+    fn revoke_reaction_roundtrip() {
+        for ev in [
+            CanonicalTimelineEvent::Revoke { target_server_message_id: 777 },
+            CanonicalTimelineEvent::ReactionChange {
+                target_server_message_id: 777, emoji: "👍".into(), added: true, actor_user_id: 42,
+            },
+        ] {
+            let s = serde_json::to_string(&ev).unwrap();
+            let back: CanonicalTimelineEvent = serde_json::from_str(&s).unwrap();
+            assert_eq!(back, ev);
+        }
+    }
+
+    // 未知 message_type → 无法映射 → None（保留 legacy-only，不阻塞）。
+    #[test]
+    fn unknown_message_type_maps_to_none() {
+        assert!(CanonicalTimelineEvent::new_message_from_legacy("nonsense", &json!({})).is_none());
+    }
 }
