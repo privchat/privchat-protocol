@@ -183,6 +183,48 @@ pub struct MessagePayloadEnvelope {
 // ------------------------------------------------------------------
 
 impl MessageMetadata {
+    /// Return every file reference that must be attached to the message row.
+    ///
+    /// This is shared by all server-side message entry points so that a
+    /// typed message cannot silently skip ownership binding when it is
+    /// created outside `sync/submit`.
+    pub fn attachment_file_ids(&self) -> Vec<u64> {
+        let mut ids = Vec::new();
+        match self {
+            MessageMetadata::Image(value) => {
+                ids.push(value.file_id);
+                if let Some(id) = value.thumbnail_file_id {
+                    ids.push(id);
+                }
+            }
+            MessageMetadata::File(value) => ids.push(value.file_id),
+            MessageMetadata::Voice(value) => ids.push(value.file_id),
+            MessageMetadata::Video(value) => {
+                ids.push(value.file_id);
+                if let Some(id) = value.thumbnail_file_id {
+                    ids.push(id);
+                }
+            }
+            MessageMetadata::Location(value) => {
+                if let Some(id) = value.thumbnail_file_id {
+                    ids.push(id);
+                }
+            }
+            MessageMetadata::Link(value) => {
+                if let Some(id) = value.thumbnail_file_id {
+                    ids.push(id);
+                }
+            }
+            MessageMetadata::ContactCard(_)
+            | MessageMetadata::Sticker(_)
+            | MessageMetadata::Forward(_) => {}
+        }
+        ids.retain(|id| *id != 0);
+        ids.sort_unstable();
+        ids.dedup();
+        ids
+    }
+
     /// Build a typed metadata variant from a JSON `Value` plus the
     /// content-type discriminator. Used when bridging legacy data
     /// (SDK local DB rows, FFI inputs) into the wire-canonical struct.
@@ -254,6 +296,34 @@ impl MessageMetadata {
             }
             MessageMetadata::Link(m) => serde_json::to_value(m).unwrap_or(serde_json::Value::Null),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn attachment_file_ids_are_complete_deduplicated_and_zero_free() {
+        let metadata = MessageMetadata::Image(ImageMetadata {
+            file_id: 42,
+            thumbnail_file_id: Some(42),
+            ..Default::default()
+        });
+        assert_eq!(metadata.attachment_file_ids(), vec![42]);
+
+        let metadata = MessageMetadata::Video(VideoMetadata {
+            file_id: 0,
+            thumbnail_file_id: Some(99),
+            ..Default::default()
+        });
+        assert_eq!(metadata.attachment_file_ids(), vec![99]);
+
+        assert!(
+            MessageMetadata::ContactCard(ContactCardMetadata { user_id: 7 })
+                .attachment_file_ids()
+                .is_empty()
+        );
     }
 }
 

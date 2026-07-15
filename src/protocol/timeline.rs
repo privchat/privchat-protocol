@@ -11,8 +11,11 @@ use crate::message::{ContentMessageType, LocalMessagePayloadEnvelope};
 use crate::protocol::content::{decode_payload_envelope, encode_payload_envelope};
 use crate::MessagePayloadEnvelope;
 use flatbuffers::FlatBufferBuilder;
+use serde::Serialize;
 
 pub const CANONICAL_TIMELINE_EVENT_SCHEMA_V1: u16 = 1;
+/// Push topic whose payload is a FlatBuffers `CanonicalTimelineEvent`.
+pub const CANONICAL_TIMELINE_PUSH_TOPIC_V1: &str = "timeline.canonical.v1";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum CanonicalTimelineEvent {
@@ -49,6 +52,65 @@ pub struct ReactionChangeEvent {
 }
 
 impl CanonicalTimelineEvent {
+    /// Produce the additive legacy `message_type + content` projection used by
+    /// old clients. IDs are strings so JSON consumers cannot lose u64 bits.
+    pub fn to_legacy_commit(
+        &self,
+        channel_id: u64,
+        channel_type: u8,
+    ) -> Result<(String, serde_json::Value), ProtocolError> {
+        #[derive(Serialize)]
+        struct LegacyRevoke {
+            message_id: String,
+            channel_id: String,
+            channel_type: u8,
+            revoke: bool,
+            revoked_by: String,
+            revoked_at: i64,
+        }
+        #[derive(Serialize)]
+        struct LegacyReaction<'a> {
+            message_id: String,
+            channel_id: String,
+            channel_type: u8,
+            uid: String,
+            emoji: &'a str,
+            deleted: bool,
+        }
+
+        let (message_type, value) = match self {
+            Self::NewMessage(event) => (
+                event.message_type.as_str().to_string(),
+                serde_json::to_value(event.payload.to_legacy()),
+            ),
+            Self::Revoke(event) => (
+                "message.revoke".to_string(),
+                serde_json::to_value(LegacyRevoke {
+                    message_id: event.target_server_message_id.to_string(),
+                    channel_id: channel_id.to_string(),
+                    channel_type,
+                    revoke: true,
+                    revoked_by: event.revoked_by.to_string(),
+                    revoked_at: event.revoked_at,
+                }),
+            ),
+            Self::ReactionChange(event) => (
+                "message_reaction".to_string(),
+                serde_json::to_value(LegacyReaction {
+                    message_id: event.target_server_message_id.to_string(),
+                    channel_id: channel_id.to_string(),
+                    channel_type,
+                    uid: event.actor_id.to_string(),
+                    emoji: &event.emoji,
+                    deleted: matches!(event.operation, ReactionOperation::Remove),
+                }),
+            ),
+        };
+        value
+            .map(|value| (message_type, value))
+            .map_err(|e| ProtocolError::InvalidValue(format!("legacy timeline projection: {e}")))
+    }
+
     /// Convert an existing legacy commit payload into the canonical event.
     /// Unknown command types remain legacy-only during the additive rollout.
     pub fn from_legacy(
@@ -406,5 +468,22 @@ mod tests {
                 .expect("canonical opaque snapshot"),
             legacy
         );
+    }
+
+    #[test]
+    fn legacy_mutation_projection_keeps_u64_ids_as_strings() {
+        let event = CanonicalTimelineEvent::ReactionChange(ReactionChangeEvent {
+            target_server_message_id: 9_007_199_254_740_993,
+            actor_id: 9_007_199_254_740_995,
+            emoji: "ok".to_string(),
+            operation: ReactionOperation::Add,
+        });
+        let (message_type, value) = event
+            .to_legacy_commit(9_007_199_254_740_997, 2)
+            .expect("legacy projection");
+        assert_eq!(message_type, "message_reaction");
+        assert_eq!(value["message_id"], "9007199254740993");
+        assert_eq!(value["uid"], "9007199254740995");
+        assert_eq!(value["channel_id"], "9007199254740997");
     }
 }

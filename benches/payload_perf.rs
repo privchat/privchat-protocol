@@ -80,6 +80,7 @@ fn image_typed() -> MessagePayloadEnvelope {
             url: Some("https://cdn.example.com/img/9f3a/x.jpg".to_string()),
             width: 1920,
             height: 1080,
+            ..Default::default()
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -111,6 +112,7 @@ fn full_typed() -> MessagePayloadEnvelope {
             url: Some("https://cdn.example.com/img/abc/full.jpg".to_string()),
             width: 1920,
             height: 1080,
+            ..Default::default()
         })),
         reply_to_message_id: Some(0xDEAD_BEEF_CAFE_BABE),
         mentioned_user_ids: vec![10001, 10002, 10003],
