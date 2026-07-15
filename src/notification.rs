@@ -84,6 +84,7 @@ pub struct MessageDeliveryReceiptNotification {
     pub metadata: MessageDeliveryReceiptMetadata,
     pub receipt_type: String,
     pub server_message_id: u64,
+    pub recipient_user_id: u64,
     pub delivered_at: u64,
 }
 
@@ -92,6 +93,7 @@ impl MessageDeliveryReceiptNotification {
         channel_id: u64,
         channel_type: i32,
         server_message_id: u64,
+        recipient_user_id: u64,
         delivered_at: u64,
     ) -> Self {
         Self {
@@ -103,6 +105,7 @@ impl MessageDeliveryReceiptNotification {
             },
             receipt_type: "delivered".to_string(),
             server_message_id,
+            recipient_user_id,
             delivered_at,
         }
     }
@@ -633,6 +636,19 @@ fn format_duration(seconds: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn delivered_receipt_contains_authoritative_recipient() {
+        let receipt = MessageDeliveryReceiptNotification::new(11, 1, 22, 33, 44);
+        let value = serde_json::to_value(receipt).unwrap();
+        assert_eq!(
+            value["metadata"]["notification_type"],
+            "message_receipt_updated"
+        );
+        assert_eq!(value["server_message_id"], 22);
+        assert_eq!(value["recipient_user_id"], 33);
+        assert_eq!(value["delivered_at"], 44);
+    }
 
     #[test]
     fn test_notification_serialization() {
