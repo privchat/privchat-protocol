@@ -75,6 +75,25 @@ pub enum ContentMessageType {
 }
 
 impl ContentMessageType {
+    pub fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "text" => Some(ContentMessageType::Text),
+            "voice" => Some(ContentMessageType::Voice),
+            "image" => Some(ContentMessageType::Image),
+            "video" => Some(ContentMessageType::Video),
+            "file" => Some(ContentMessageType::File),
+            "system" => Some(ContentMessageType::System),
+            "sticker" => Some(ContentMessageType::Sticker),
+            "contact_card" | "contact" => Some(ContentMessageType::ContactCard),
+            "location" => Some(ContentMessageType::Location),
+            "link" => Some(ContentMessageType::Link),
+            "forward" => Some(ContentMessageType::Forward),
+            "red_packet" => Some(ContentMessageType::RedPacket),
+            "money_transfer" => Some(ContentMessageType::MoneyTransfer),
+            _ => None,
+        }
+    }
+
     pub fn from_u32(value: u32) -> Option<Self> {
         match value {
             0 => Some(ContentMessageType::Text),

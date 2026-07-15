@@ -18,6 +18,7 @@ mod push;
 mod rpc;
 mod send;
 mod subscribe;
+mod timeline;
 mod transfer;
 
 pub use auth::*;
@@ -29,6 +30,7 @@ pub use push::*;
 pub use rpc::*;
 pub use send::*;
 pub use subscribe::*;
+pub use timeline::*;
 pub use transfer::*;
 
 // ------------------------------------------------------------------

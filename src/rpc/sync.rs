@@ -15,6 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::{CanonicalTimelineEvent, FlatBufferMessage, CANONICAL_TIMELINE_EVENT_SCHEMA_V1};
 /// pts-Based 同步协议
 ///
 /// 设计原则：
@@ -69,6 +70,30 @@ mod option_u64_str {
             Some(s) => s.parse::<u64>().map(Some).map_err(D::Error::custom),
             None => Ok(None),
         }
+    }
+}
+
+mod option_base64 {
+    use base64::{engine::general_purpose::STANDARD, Engine as _};
+    use serde::{de::Error as DeError, Deserialize, Deserializer, Serializer};
+
+    pub fn serialize<S: Serializer>(
+        value: &Option<Vec<u8>>,
+        serializer: S,
+    ) -> Result<S::Ok, S::Error> {
+        match value {
+            Some(bytes) => serializer.serialize_str(&STANDARD.encode(bytes)),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    pub fn deserialize<'de, D: Deserializer<'de>>(
+        deserializer: D,
+    ) -> Result<Option<Vec<u8>>, D::Error> {
+        let value = Option::<String>::deserialize(deserializer)?;
+        value
+            .map(|encoded| STANDARD.decode(encoded).map_err(D::Error::custom))
+            .transpose()
     }
 }
 
@@ -228,6 +253,14 @@ pub struct GetDifferenceResponse {
 /// (i64 millis — well below 2^53 for any plausible date) stay native.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ServerCommit {
+    /// commit_log primary key. Missing only on responses from an old server.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_u64_str"
+    )]
+    pub event_id: Option<u64>,
+
     /// pts（per-channel 单调递增）
     #[serde(with = "u64_str")]
     pub pts: u64,
@@ -267,6 +300,117 @@ pub struct ServerCommit {
     /// 发送者信息（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_info: Option<SenderInfo>,
+
+    /// Version for `canonical_event`; absent on legacy servers.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_schema_version: Option<u16>,
+
+    /// FlatBuffers `CanonicalTimelineEvent`, base64 encoded only at the JSON
+    /// RPC boundary. The bytes themselves are persisted as BYTEA.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_base64"
+    )]
+    pub canonical_event: Option<Vec<u8>>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CanonicalEventSource {
+    Canonical,
+    LegacyNoCanonical,
+    LegacyUnknownVersion,
+    LegacyDecodeError,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CanonicalEventResolution {
+    pub event: Option<CanonicalTimelineEvent>,
+    pub source: CanonicalEventSource,
+    pub canonical_legacy_mismatch: bool,
+    pub canonical_decode_error: bool,
+}
+
+impl ServerCommit {
+    /// Populate the additive canonical representation from the legacy fields.
+    /// Unknown command types remain legacy-only and return `Ok(false)`.
+    pub fn populate_canonical_event(&mut self) -> Result<bool, crate::ProtocolError> {
+        let Some(event) = CanonicalTimelineEvent::from_legacy(
+            &self.message_type,
+            &self.content,
+            self.server_msg_id,
+            self.sender_id,
+            self.server_timestamp,
+        )?
+        else {
+            self.event_schema_version = None;
+            self.canonical_event = None;
+            return Ok(false);
+        };
+        self.canonical_event = Some(event.encode_fb()?);
+        self.event_schema_version = Some(CANONICAL_TIMELINE_EVENT_SCHEMA_V1);
+        Ok(true)
+    }
+
+    /// Resolve canonical-first with the frozen whole-event fallback rules.
+    /// Callers emit metrics from the returned flags rather than partially
+    /// applying a malformed or future-version canonical event.
+    pub fn resolve_canonical_event(&self) -> CanonicalEventResolution {
+        let legacy = || {
+            CanonicalTimelineEvent::from_legacy(
+                &self.message_type,
+                &self.content,
+                self.server_msg_id,
+                self.sender_id,
+                self.server_timestamp,
+            )
+            .ok()
+            .flatten()
+        };
+
+        let Some(version) = self.event_schema_version else {
+            return CanonicalEventResolution {
+                event: legacy(),
+                source: CanonicalEventSource::LegacyNoCanonical,
+                canonical_legacy_mismatch: false,
+                canonical_decode_error: false,
+            };
+        };
+        if version != CANONICAL_TIMELINE_EVENT_SCHEMA_V1 {
+            return CanonicalEventResolution {
+                event: legacy(),
+                source: CanonicalEventSource::LegacyUnknownVersion,
+                canonical_legacy_mismatch: false,
+                canonical_decode_error: false,
+            };
+        }
+
+        let Some(bytes) = self.canonical_event.as_deref() else {
+            return CanonicalEventResolution {
+                event: legacy(),
+                source: CanonicalEventSource::LegacyDecodeError,
+                canonical_legacy_mismatch: false,
+                canonical_decode_error: true,
+            };
+        };
+        match CanonicalTimelineEvent::decode_fb(bytes) {
+            Ok(canonical) => {
+                let mismatch = legacy().is_some_and(|legacy| legacy != canonical);
+                CanonicalEventResolution {
+                    event: Some(canonical),
+                    source: CanonicalEventSource::Canonical,
+                    canonical_legacy_mismatch: mismatch,
+                    canonical_decode_error: false,
+                }
+            }
+            Err(_) => CanonicalEventResolution {
+                event: legacy(),
+                source: CanonicalEventSource::LegacyDecodeError,
+                canonical_legacy_mismatch: false,
+                canonical_decode_error: true,
+            },
+        }
+    }
 }
 
 /// 发送者信息（简化的用户信息）
@@ -750,6 +894,33 @@ pub struct SyncEntitiesResponse {
 mod tests {
     use super::*;
 
+    #[derive(Serialize)]
+    struct TextContent<'a> {
+        text: &'a str,
+    }
+
+    fn text_content(text: &str) -> serde_json::Value {
+        serde_json::to_value(TextContent { text }).expect("serialize text content")
+    }
+
+    fn legacy_commit() -> ServerCommit {
+        ServerCommit {
+            event_id: None,
+            pts: 9_007_199_254_740_993,
+            server_msg_id: 9_007_199_254_740_995,
+            local_message_id: Some(9_007_199_254_740_997),
+            channel_id: 9_007_199_254_740_999,
+            channel_type: 2,
+            message_type: "text".to_string(),
+            content: text_content("hello"),
+            server_timestamp: 1_700_000_000_000,
+            sender_id: 9_007_199_254_741_001,
+            sender_info: None,
+            event_schema_version: None,
+            canonical_event: None,
+        }
+    }
+
     #[test]
     fn test_client_submit_request_serialization() {
         let req = ClientSubmitRequest {
@@ -758,7 +929,7 @@ mod tests {
             channel_type: 1,
             last_pts: 100,
             command_type: "send_message".to_string(),
-            payload: serde_json::json!({"text": "Hello"}),
+            payload: text_content("Hello"),
             client_timestamp: 1700000000000,
             device_id: Some("device_001".to_string()),
         };
@@ -784,5 +955,59 @@ mod tests {
             ServerDecision::Transformed { .. }
         ));
         assert!(matches!(decision_rejected, ServerDecision::Rejected { .. }));
+    }
+
+    #[test]
+    fn old_client_new_server_and_new_client_old_server_are_compatible() {
+        #[derive(Deserialize)]
+        struct LegacyServerCommitReader {
+            message_type: String,
+            content: serde_json::Value,
+        }
+
+        let old_json = serde_json::to_value(legacy_commit()).unwrap();
+        let old_server_commit: ServerCommit = serde_json::from_value(old_json).unwrap();
+        assert_eq!(
+            old_server_commit.resolve_canonical_event().source,
+            CanonicalEventSource::LegacyNoCanonical
+        );
+
+        let mut new_server_commit = legacy_commit();
+        new_server_commit.event_id = Some(77);
+        assert!(new_server_commit.populate_canonical_event().unwrap());
+        let encoded = serde_json::to_value(&new_server_commit).unwrap();
+        assert!(encoded["canonical_event"].is_string());
+        assert_eq!(encoded["event_id"], "77");
+        // Legacy fields remain present for old clients.
+        assert_eq!(encoded["message_type"], "text");
+        assert_eq!(encoded["content"]["text"], "hello");
+        let old_client: LegacyServerCommitReader = serde_json::from_value(encoded).unwrap();
+        assert_eq!(old_client.message_type, "text");
+        assert_eq!(old_client.content["text"], "hello");
+    }
+
+    #[test]
+    fn canonical_resolution_falls_back_whole_event_and_reports_mismatch() {
+        let mut commit = legacy_commit();
+        commit.populate_canonical_event().unwrap();
+        assert_eq!(
+            commit.resolve_canonical_event().source,
+            CanonicalEventSource::Canonical
+        );
+
+        commit.content = text_content("different");
+        let mismatch = commit.resolve_canonical_event();
+        assert_eq!(mismatch.source, CanonicalEventSource::Canonical);
+        assert!(mismatch.canonical_legacy_mismatch);
+
+        commit.canonical_event = Some(vec![1, 2, 3]);
+        let malformed = commit.resolve_canonical_event();
+        assert_eq!(malformed.source, CanonicalEventSource::LegacyDecodeError);
+        assert!(malformed.canonical_decode_error);
+
+        commit.event_schema_version = Some(CANONICAL_TIMELINE_EVENT_SCHEMA_V1 + 1);
+        let future = commit.resolve_canonical_event();
+        assert_eq!(future.source, CanonicalEventSource::LegacyUnknownVersion);
+        assert!(!future.canonical_decode_error);
     }
 }

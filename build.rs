@@ -21,6 +21,7 @@ const SCHEMAS: &[&str] = &[
     "rpc.fbs",
     "transfer.fbs",
     "content.fbs",
+    "timeline.fbs",
 ];
 
 const SCHEMA_MODULES: &[&str] = &[
@@ -35,6 +36,7 @@ const SCHEMA_MODULES: &[&str] = &[
     "rpc_generated",
     "transfer_generated",
     "content_generated",
+    "timeline_generated",
 ];
 
 fn main() {

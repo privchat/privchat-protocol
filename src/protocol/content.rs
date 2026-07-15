@@ -606,118 +606,130 @@ fn decode_source(v: fb::MessageSource<'_>) -> MessageSource {
 
 impl FlatBufferMessage for MessagePayloadEnvelope {
     fn encode_fb_into(&self, builder: &mut FlatBufferBuilder<'_>) -> Result<(), ProtocolError> {
-        let content = builder.create_string(&self.content);
-
-        // Build metadata union (discriminator + offset).
-        let (metadata_type, metadata_offset) = match &self.metadata {
-            None => (fb::MessageMetadata::NONE, None),
-            Some(MessageMetadata::Image(m)) => (
-                fb::MessageMetadata::ImageMetadata,
-                Some(encode_image(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::File(m)) => (
-                fb::MessageMetadata::FileMetadata,
-                Some(encode_file(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Voice(m)) => (
-                fb::MessageMetadata::VoiceMetadata,
-                Some(encode_voice(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Video(m)) => (
-                fb::MessageMetadata::VideoMetadata,
-                Some(encode_video(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Location(m)) => (
-                fb::MessageMetadata::LocationMetadata,
-                Some(encode_location(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::ContactCard(m)) => (
-                fb::MessageMetadata::ContactCardMetadata,
-                Some(encode_contact(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Sticker(m)) => (
-                fb::MessageMetadata::StickerMetadata,
-                Some(encode_sticker(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Forward(m)) => (
-                fb::MessageMetadata::ForwardMetadata,
-                Some(encode_forward(builder, m).as_union_value()),
-            ),
-            Some(MessageMetadata::Link(m)) => (
-                fb::MessageMetadata::LinkMetadata,
-                Some(encode_link(builder, m).as_union_value()),
-            ),
-        };
-
-        let mentioned_user_ids = builder.create_vector(&self.mentioned_user_ids);
-        let message_source = self
-            .message_source
-            .as_ref()
-            .map(|s| encode_source(builder, s));
-
-        let args = fb::MessagePayloadEnvelopeArgs {
-            content: Some(content),
-            metadata_type,
-            metadata: metadata_offset,
-            reply_to_message_id: self.reply_to_message_id.unwrap_or(0),
-            mentioned_user_ids: Some(mentioned_user_ids),
-            message_source,
-        };
-        let offset = fb::MessagePayloadEnvelope::create(builder, &args);
+        let offset = encode_payload_envelope(builder, self);
         builder.finish(offset, None);
         Ok(())
     }
 
     fn decode_fb(bytes: &[u8]) -> Result<Self, ProtocolError> {
         let view = flatbuffers::root::<fb::MessagePayloadEnvelope>(bytes)?;
+        Ok(decode_payload_envelope(view))
+    }
+}
 
-        let metadata = match view.metadata_type() {
-            fb::MessageMetadata::ImageMetadata => view
-                .metadata_as_image_metadata()
-                .map(|m| MessageMetadata::Image(decode_image(m))),
-            fb::MessageMetadata::FileMetadata => view
-                .metadata_as_file_metadata()
-                .map(|m| MessageMetadata::File(decode_file(m))),
-            fb::MessageMetadata::VoiceMetadata => view
-                .metadata_as_voice_metadata()
-                .map(|m| MessageMetadata::Voice(decode_voice(m))),
-            fb::MessageMetadata::VideoMetadata => view
-                .metadata_as_video_metadata()
-                .map(|m| MessageMetadata::Video(decode_video(m))),
-            fb::MessageMetadata::LocationMetadata => view
-                .metadata_as_location_metadata()
-                .map(|m| MessageMetadata::Location(decode_location(m))),
-            fb::MessageMetadata::ContactCardMetadata => view
-                .metadata_as_contact_card_metadata()
-                .map(|m| MessageMetadata::ContactCard(decode_contact(m))),
-            fb::MessageMetadata::StickerMetadata => view
-                .metadata_as_sticker_metadata()
-                .map(|m| MessageMetadata::Sticker(decode_sticker(m))),
-            fb::MessageMetadata::ForwardMetadata => view
-                .metadata_as_forward_metadata()
-                .map(|m| MessageMetadata::Forward(decode_forward(m))),
-            fb::MessageMetadata::LinkMetadata => view
-                .metadata_as_link_metadata()
-                .map(|m| MessageMetadata::Link(decode_link(m))),
-            _ => None, // NONE (or future unknown) → no metadata
-        };
+pub(crate) fn encode_payload_envelope<'a>(
+    builder: &mut FlatBufferBuilder<'a>,
+    envelope: &MessagePayloadEnvelope,
+) -> flatbuffers::WIPOffset<fb::MessagePayloadEnvelope<'a>> {
+    let content = builder.create_string(&envelope.content);
 
-        let reply_to_message_id = match view.reply_to_message_id() {
-            0 => None,
-            n => Some(n),
-        };
+    // Build metadata union (discriminator + offset).
+    let (metadata_type, metadata_offset) = match &envelope.metadata {
+        None => (fb::MessageMetadata::NONE, None),
+        Some(MessageMetadata::Image(m)) => (
+            fb::MessageMetadata::ImageMetadata,
+            Some(encode_image(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::File(m)) => (
+            fb::MessageMetadata::FileMetadata,
+            Some(encode_file(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Voice(m)) => (
+            fb::MessageMetadata::VoiceMetadata,
+            Some(encode_voice(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Video(m)) => (
+            fb::MessageMetadata::VideoMetadata,
+            Some(encode_video(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Location(m)) => (
+            fb::MessageMetadata::LocationMetadata,
+            Some(encode_location(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::ContactCard(m)) => (
+            fb::MessageMetadata::ContactCardMetadata,
+            Some(encode_contact(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Sticker(m)) => (
+            fb::MessageMetadata::StickerMetadata,
+            Some(encode_sticker(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Forward(m)) => (
+            fb::MessageMetadata::ForwardMetadata,
+            Some(encode_forward(builder, m).as_union_value()),
+        ),
+        Some(MessageMetadata::Link(m)) => (
+            fb::MessageMetadata::LinkMetadata,
+            Some(encode_link(builder, m).as_union_value()),
+        ),
+    };
 
-        let mentioned_user_ids = view
-            .mentioned_user_ids()
-            .map(|v| v.iter().collect())
-            .unwrap_or_default();
+    let mentioned_user_ids = builder.create_vector(&envelope.mentioned_user_ids);
+    let message_source = envelope
+        .message_source
+        .as_ref()
+        .map(|s| encode_source(builder, s));
 
-        Ok(Self {
-            content: view.content().unwrap_or("").to_string(),
-            metadata,
-            reply_to_message_id,
-            mentioned_user_ids,
-            message_source: view.message_source().map(decode_source),
-        })
+    let args = fb::MessagePayloadEnvelopeArgs {
+        content: Some(content),
+        metadata_type,
+        metadata: metadata_offset,
+        reply_to_message_id: envelope.reply_to_message_id.unwrap_or(0),
+        mentioned_user_ids: Some(mentioned_user_ids),
+        message_source,
+    };
+    fb::MessagePayloadEnvelope::create(builder, &args)
+}
+
+pub(crate) fn decode_payload_envelope(
+    view: fb::MessagePayloadEnvelope<'_>,
+) -> MessagePayloadEnvelope {
+    let metadata = match view.metadata_type() {
+        fb::MessageMetadata::ImageMetadata => view
+            .metadata_as_image_metadata()
+            .map(|m| MessageMetadata::Image(decode_image(m))),
+        fb::MessageMetadata::FileMetadata => view
+            .metadata_as_file_metadata()
+            .map(|m| MessageMetadata::File(decode_file(m))),
+        fb::MessageMetadata::VoiceMetadata => view
+            .metadata_as_voice_metadata()
+            .map(|m| MessageMetadata::Voice(decode_voice(m))),
+        fb::MessageMetadata::VideoMetadata => view
+            .metadata_as_video_metadata()
+            .map(|m| MessageMetadata::Video(decode_video(m))),
+        fb::MessageMetadata::LocationMetadata => view
+            .metadata_as_location_metadata()
+            .map(|m| MessageMetadata::Location(decode_location(m))),
+        fb::MessageMetadata::ContactCardMetadata => view
+            .metadata_as_contact_card_metadata()
+            .map(|m| MessageMetadata::ContactCard(decode_contact(m))),
+        fb::MessageMetadata::StickerMetadata => view
+            .metadata_as_sticker_metadata()
+            .map(|m| MessageMetadata::Sticker(decode_sticker(m))),
+        fb::MessageMetadata::ForwardMetadata => view
+            .metadata_as_forward_metadata()
+            .map(|m| MessageMetadata::Forward(decode_forward(m))),
+        fb::MessageMetadata::LinkMetadata => view
+            .metadata_as_link_metadata()
+            .map(|m| MessageMetadata::Link(decode_link(m))),
+        _ => None, // NONE (or future unknown) → no metadata
+    };
+
+    let reply_to_message_id = match view.reply_to_message_id() {
+        0 => None,
+        n => Some(n),
+    };
+
+    let mentioned_user_ids = view
+        .mentioned_user_ids()
+        .map(|v| v.iter().collect())
+        .unwrap_or_default();
+
+    MessagePayloadEnvelope {
+        content: view.content().unwrap_or("").to_string(),
+        metadata,
+        reply_to_message_id,
+        mentioned_user_ids,
+        message_source: view.message_source().map(decode_source),
     }
 }

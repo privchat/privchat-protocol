@@ -1,0 +1,43 @@
+// Canonical timeline event carried additively beside the legacy ServerCommit
+// message_type/content JSON fields. The RPC envelope transports these bytes as
+// base64; this schema remains the sole contract for canonical event contents.
+
+include "content.fbs";
+
+namespace privchat.protocol;
+
+enum ReactionOperation : ubyte {
+  Unknown = 0,
+  Add = 1,
+  Remove = 2,
+}
+
+table NewMessageEvent {
+  message_type : uint;
+  payload      : MessagePayloadEnvelope;
+}
+
+table RevokeEvent {
+  target_server_message_id : ulong;
+  revoked_by               : ulong;
+  revoked_at               : long;
+}
+
+table ReactionChangeEvent {
+  target_server_message_id : ulong;
+  actor_id                 : ulong;
+  emoji                    : string;
+  operation                : ReactionOperation;
+}
+
+union TimelineEventPayload {
+  NewMessageEvent,
+  RevokeEvent,
+  ReactionChangeEvent,
+}
+
+table CanonicalTimelineEvent {
+  payload : TimelineEventPayload;
+}
+
+root_type CanonicalTimelineEvent;

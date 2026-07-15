@@ -358,6 +358,41 @@ fn payload_link_fixture() -> MessagePayloadEnvelope {
     }
 }
 
+fn timeline_new_message_fixture() -> CanonicalTimelineEvent {
+    CanonicalTimelineEvent::NewMessage(NewMessageEvent {
+        message_type: ContentMessageType::Image,
+        payload: MessagePayloadEnvelope {
+            content: String::new(),
+            metadata: Some(MessageMetadata::Image(ImageMetadata {
+                file_id: 9_007_199_254_740_993,
+                width: 1920,
+                height: 1080,
+                file_name: Some("large-id.jpg".to_string()),
+                ..Default::default()
+            })),
+            mentioned_user_ids: vec![9_007_199_254_740_995],
+            ..Default::default()
+        },
+    })
+}
+
+fn timeline_revoke_fixture() -> CanonicalTimelineEvent {
+    CanonicalTimelineEvent::Revoke(RevokeEvent {
+        target_server_message_id: 9_007_199_254_740_997,
+        revoked_by: 9_007_199_254_740_999,
+        revoked_at: 1_714_680_000_000,
+    })
+}
+
+fn timeline_reaction_fixture() -> CanonicalTimelineEvent {
+    CanonicalTimelineEvent::ReactionChange(ReactionChangeEvent {
+        target_server_message_id: 9_007_199_254_741_001,
+        actor_id: 9_007_199_254_741_003,
+        emoji: "thumbs-up".to_string(),
+        operation: ReactionOperation::Remove,
+    })
+}
+
 // ------------------------------------------------------------------
 // Dump
 // ------------------------------------------------------------------
@@ -377,6 +412,21 @@ fn dump() {
                 json!({
                     "byte_length": bytes.len(),
                     "value": serde_json::to_value(&$msg).expect("serde"),
+                }),
+            );
+        }};
+    }
+
+    macro_rules! emit_timeline {
+        ($name:expr, $event:expr) => {{
+            let event = $event;
+            let bytes = event.encode_fb().expect("encode canonical timeline event");
+            fs::write(dir.join(format!("{}.bin", $name)), &bytes).expect("write bin");
+            manifest.insert(
+                $name.to_string(),
+                json!({
+                    "byte_length": bytes.len(),
+                    "value": format!("{:?}", event),
                 }),
             );
         }};
@@ -402,6 +452,9 @@ fn dump() {
     emit!("payload_sticker", payload_sticker_fixture());
     emit!("payload_forward", payload_forward_fixture());
     emit!("payload_link", payload_link_fixture());
+    emit_timeline!("timeline_new_message", timeline_new_message_fixture());
+    emit_timeline!("timeline_revoke", timeline_revoke_fixture());
+    emit_timeline!("timeline_reaction", timeline_reaction_fixture());
 
     let manifest_path = dir.join("manifest.json");
     fs::write(
@@ -410,7 +463,7 @@ fn dump() {
     )
     .expect("write manifest");
 
-    println!("wrote {} fixtures + manifest.json → {}", 20, dir.display());
+    println!("wrote {} fixtures + manifest.json → {}", 23, dir.display());
 }
 
 // ------------------------------------------------------------------
@@ -575,6 +628,20 @@ fn verify() {
         |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
     );
 
+    for (name, expected) in [
+        ("timeline_new_message", timeline_new_message_fixture()),
+        ("timeline_revoke", timeline_revoke_fixture()),
+        ("timeline_reaction", timeline_reaction_fixture()),
+    ] {
+        match CanonicalTimelineEvent::decode_fb(&read(name)) {
+            Ok(got) if got == expected => println!("ok  {name}"),
+            Ok(got) => failures.push(format!(
+                "{name}: decode succeeded but value mismatch\n  expected: {expected:?}\n  got:      {got:?}"
+            )),
+            Err(error) => failures.push(format!("{name}: decode failed: {error:?}")),
+        }
+    }
+
     if !failures.is_empty() {
         eprintln!("\n{} fixture(s) failed:", failures.len());
         for f in &failures {
@@ -582,7 +649,7 @@ fn verify() {
         }
         std::process::exit(1);
     }
-    println!("\nall {} TS-produced fixtures verified", 20);
+    println!("\nall {} TS-produced fixtures verified", 23);
 }
 
 // Equality helpers (these structs don't all derive PartialEq).
