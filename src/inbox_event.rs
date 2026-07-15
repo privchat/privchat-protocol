@@ -211,8 +211,7 @@ mod tests {
         assert_eq!(parsed.schema_version, 1);
         assert_eq!(parsed.aggregate_type, "friend_request");
         assert_eq!(parsed.aggregate_id, "10001");
-        let p: FriendRequestReceivedPayload =
-            serde_json::from_value(parsed.payload).unwrap();
+        let p: FriendRequestReceivedPayload = serde_json::from_value(parsed.payload).unwrap();
         assert_eq!(p.requester_id, 10001);
         assert_eq!(p.message, "我是 Alice");
     }

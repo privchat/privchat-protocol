@@ -253,10 +253,8 @@ fn bench_full_inbound(c: &mut Criterion) {
     //      into a LocalMessagePayloadEnvelope (Value-typed metadata).
     group.bench_function("decode/json/two_layer", |b| {
         b.iter(|| {
-            let req: SendMessageRequest =
-                serde_json::from_slice(black_box(&old_wire)).unwrap();
-            let env: LocalMessagePayloadEnvelope =
-                serde_json::from_slice(&req.payload).unwrap();
+            let req: SendMessageRequest = serde_json::from_slice(black_box(&old_wire)).unwrap();
+            let env: LocalMessagePayloadEnvelope = serde_json::from_slice(&req.payload).unwrap();
             (req, env)
         })
     });
@@ -305,10 +303,8 @@ fn bench_bridge(c: &mut Criterion) {
     // Mirrors what `privchat-sdk::build_send_message_request` now does.
     group.bench_function("legacy_to_typed_to_fb", |b| {
         b.iter(|| {
-            let typed = MessagePayloadEnvelope::from_legacy(
-                black_box(&legacy),
-                ContentMessageType::Image,
-            );
+            let typed =
+                MessagePayloadEnvelope::from_legacy(black_box(&legacy), ContentMessageType::Image);
             encode_message(&typed).unwrap()
         })
     });

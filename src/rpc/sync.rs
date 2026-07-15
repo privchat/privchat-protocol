@@ -54,10 +54,7 @@ mod u64_str {
 mod option_u64_str {
     use serde::{de::Error as DeError, Deserialize, Deserializer, Serializer};
 
-    pub fn serialize<S: Serializer>(
-        value: &Option<u64>,
-        serializer: S,
-    ) -> Result<S::Ok, S::Error> {
+    pub fn serialize<S: Serializer>(value: &Option<u64>, serializer: S) -> Result<S::Ok, S::Error> {
         match value {
             Some(v) => serializer.serialize_str(&v.to_string()),
             None => serializer.serialize_none(),
@@ -240,7 +237,11 @@ pub struct ServerCommit {
     pub server_msg_id: u64,
 
     /// 关联的 local_message_id（如果来自客户端）
-    #[serde(default, skip_serializing_if = "Option::is_none", with = "option_u64_str")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        with = "option_u64_str"
+    )]
     pub local_message_id: Option<u64>,
 
     /// 频道 ID
@@ -784,5 +785,4 @@ mod tests {
         ));
         assert!(matches!(decision_rejected, ServerDecision::Rejected { .. }));
     }
-
 }

@@ -83,7 +83,6 @@ fn main() {
             fixed = fixed.replace(&needle, &replacement);
         }
 
-        std::fs::write(&path, fixed)
-            .unwrap_or_else(|e| panic!("write {}: {}", path.display(), e));
+        std::fs::write(&path, fixed).unwrap_or_else(|e| panic!("write {}: {}", path.display(), e));
     }
 }

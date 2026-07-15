@@ -12,10 +12,7 @@ use flatbuffers::FlatBufferBuilder;
 pub trait FlatBufferMessage: Sized {
     /// Build the message into the supplied builder. Caller is responsible
     /// for `builder.reset()` between uses; this method does NOT call reset.
-    fn encode_fb_into(
-        &self,
-        builder: &mut FlatBufferBuilder<'_>,
-    ) -> Result<(), ProtocolError>;
+    fn encode_fb_into(&self, builder: &mut FlatBufferBuilder<'_>) -> Result<(), ProtocolError>;
 
     /// Allocate a builder, encode, and return the bytes.
     fn encode_fb(&self) -> Result<Vec<u8>, ProtocolError> {

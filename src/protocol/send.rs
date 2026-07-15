@@ -104,7 +104,10 @@ impl FlatBufferMessage for SendMessageRequest {
             expire: view.expire(),
             from_uid: view.from_uid(),
             topic: view.topic().unwrap_or("").to_string(),
-            payload: view.payload().map(|v| v.bytes().to_vec()).unwrap_or_default(),
+            payload: view
+                .payload()
+                .map(|v| v.bytes().to_vec())
+                .unwrap_or_default(),
         })
     }
 }

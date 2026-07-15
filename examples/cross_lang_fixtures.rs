@@ -32,11 +32,15 @@ fn ts_fixtures_root() -> PathBuf {
 // ------------------------------------------------------------------
 
 fn ping_fixture() -> PingRequest {
-    PingRequest { timestamp: 1_714_680_000_000 }
+    PingRequest {
+        timestamp: 1_714_680_000_000,
+    }
 }
 
 fn pong_fixture() -> PongResponse {
-    PongResponse { timestamp: 1_714_680_001_500 }
+    PongResponse {
+        timestamp: 1_714_680_001_500,
+    }
 }
 
 fn subscribe_request_fixture() -> SubscribeRequest {
@@ -62,7 +66,10 @@ fn subscribe_response_fixture() -> SubscribeResponse {
 
 fn send_request_fixture() -> SendMessageRequest {
     SendMessageRequest {
-        setting: MessageSetting { need_receipt: true, signal: 0 },
+        setting: MessageSetting {
+            need_receipt: true,
+            signal: 0,
+        },
         client_seq: 42,
         local_message_id: 900_710_001,
         stream_no: String::new(),
@@ -86,7 +93,10 @@ fn send_response_fixture() -> SendMessageResponse {
 
 fn push_message_fixture() -> PushMessageRequest {
     PushMessageRequest {
-        setting: MessageSetting { need_receipt: true, signal: 0 },
+        setting: MessageSetting {
+            need_receipt: true,
+            signal: 0,
+        },
         msg_key: "k-1".to_string(),
         server_message_id: 700_110_001,
         message_seq: 100,
@@ -123,7 +133,9 @@ fn push_batch_fixture() -> PushBatchRequest {
     c.message_seq = 3;
     c.deleted = true;
 
-    PushBatchRequest { messages: vec![a, b, c] }
+    PushBatchRequest {
+        messages: vec![a, b, c],
+    }
 }
 
 fn auth_request_fixture() -> AuthorizationRequest {
@@ -197,6 +209,9 @@ fn payload_image_fixture() -> MessagePayloadEnvelope {
             url: Some("https://cdn.example/img.jpg".to_string()),
             width: 1920,
             height: 1080,
+            thumbnail_file_id: Some(500_110_002),
+            thumbnail_url: Some("https://cdn.example/img-thumb.jpg".to_string()),
+            file_name: Some("photo.jpg".to_string()),
         })),
         reply_to_message_id: Some(700_110_001),
         mentioned_user_ids: vec![1001, 1002],
@@ -218,6 +233,81 @@ fn payload_video_fixture() -> MessagePayloadEnvelope {
             thumbnail_file_id: Some(500_110_006),
             thumbnail_width: Some(640),
             thumbnail_height: Some(360),
+            thumbnail_url: Some("https://cdn.example/video-thumb.jpg".to_string()),
+            file_name: Some("clip.mp4".to_string()),
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    }
+}
+
+fn payload_file_fixture() -> MessagePayloadEnvelope {
+    MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::File(FileMetadata {
+            file_id: 500_110_003,
+            file_name: Some("report.pdf".to_string()),
+            file_size: 1_048_576,
+            mime_type: Some("application/pdf".to_string()),
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    }
+}
+
+fn payload_voice_fixture() -> MessagePayloadEnvelope {
+    MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::Voice(VoiceMetadata {
+            file_id: 500_110_004,
+            duration: 7,
+            file_name: Some("voice.m4a".to_string()),
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    }
+}
+
+fn payload_location_fixture() -> MessagePayloadEnvelope {
+    MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::Location(LocationMetadata {
+            latitude: 31.240_018,
+            longitude: 121.490_317,
+            coordinate_system: Some("gcj02".to_string()),
+            name: Some("The Bund".to_string()),
+            address: Some("Zhongshan East 1st Road, Shanghai".to_string()),
+            poi_id: Some("amap-poi-001".to_string()),
+            poi_source: Some("amap".to_string()),
+            thumbnail_file_id: Some(500_110_007),
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    }
+}
+
+fn payload_contact_fixture() -> MessagePayloadEnvelope {
+    MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::ContactCard(ContactCardMetadata {
+            user_id: 900_710_002,
+        })),
+        reply_to_message_id: None,
+        mentioned_user_ids: vec![],
+        message_source: None,
+    }
+}
+
+fn payload_sticker_fixture() -> MessagePayloadEnvelope {
+    MessagePayloadEnvelope {
+        content: String::new(),
+        metadata: Some(MessageMetadata::Sticker(StickerMetadata {
+            sticker_id: "pack-1/sticker-3".to_string(),
+            image_url: "https://cdn.example/s.png".to_string(),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -304,7 +394,12 @@ fn dump() {
     emit!("auth_response", auth_response_fixture());
     emit!("payload_text", payload_text_fixture());
     emit!("payload_image", payload_image_fixture());
+    emit!("payload_file", payload_file_fixture());
+    emit!("payload_voice", payload_voice_fixture());
     emit!("payload_video", payload_video_fixture());
+    emit!("payload_location", payload_location_fixture());
+    emit!("payload_contact", payload_contact_fixture());
+    emit!("payload_sticker", payload_sticker_fixture());
     emit!("payload_forward", payload_forward_fixture());
     emit!("payload_link", payload_link_fixture());
 
@@ -315,11 +410,7 @@ fn dump() {
     )
     .expect("write manifest");
 
-    println!(
-        "wrote {} fixtures + manifest.json → {}",
-        15,
-        dir.display()
-    );
+    println!("wrote {} fixtures + manifest.json → {}", 20, dir.display());
 }
 
 // ------------------------------------------------------------------
@@ -363,21 +454,126 @@ fn verify() {
         }};
     }
 
-    check!("ping", PingRequest, ping_fixture(), |a: &PingRequest, b: &PingRequest| a.timestamp == b.timestamp);
-    check!("pong", PongResponse, pong_fixture(), |a: &PongResponse, b: &PongResponse| a.timestamp == b.timestamp);
-    check!("subscribe_request", SubscribeRequest, subscribe_request_fixture(), eq_subscribe_req);
-    check!("subscribe_response", SubscribeResponse, subscribe_response_fixture(), eq_subscribe_resp);
-    check!("send_request", SendMessageRequest, send_request_fixture(), eq_send_req);
-    check!("send_response", SendMessageResponse, send_response_fixture(), eq_send_resp);
-    check!("push_message", PushMessageRequest, push_message_fixture(), eq_push_msg);
-    check!("push_batch", PushBatchRequest, push_batch_fixture(), eq_push_batch);
-    check!("auth_request", AuthorizationRequest, auth_request_fixture(), eq_auth_req);
-    check!("auth_response", AuthorizationResponse, auth_response_fixture(), eq_auth_resp);
-    check!("payload_text", MessagePayloadEnvelope, payload_text_fixture(), |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b);
-    check!("payload_image", MessagePayloadEnvelope, payload_image_fixture(), |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b);
-    check!("payload_video", MessagePayloadEnvelope, payload_video_fixture(), |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b);
-    check!("payload_forward", MessagePayloadEnvelope, payload_forward_fixture(), |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b);
-    check!("payload_link", MessagePayloadEnvelope, payload_link_fixture(), |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b);
+    check!(
+        "ping",
+        PingRequest,
+        ping_fixture(),
+        |a: &PingRequest, b: &PingRequest| a.timestamp == b.timestamp
+    );
+    check!(
+        "pong",
+        PongResponse,
+        pong_fixture(),
+        |a: &PongResponse, b: &PongResponse| a.timestamp == b.timestamp
+    );
+    check!(
+        "subscribe_request",
+        SubscribeRequest,
+        subscribe_request_fixture(),
+        eq_subscribe_req
+    );
+    check!(
+        "subscribe_response",
+        SubscribeResponse,
+        subscribe_response_fixture(),
+        eq_subscribe_resp
+    );
+    check!(
+        "send_request",
+        SendMessageRequest,
+        send_request_fixture(),
+        eq_send_req
+    );
+    check!(
+        "send_response",
+        SendMessageResponse,
+        send_response_fixture(),
+        eq_send_resp
+    );
+    check!(
+        "push_message",
+        PushMessageRequest,
+        push_message_fixture(),
+        eq_push_msg
+    );
+    check!(
+        "push_batch",
+        PushBatchRequest,
+        push_batch_fixture(),
+        eq_push_batch
+    );
+    check!(
+        "auth_request",
+        AuthorizationRequest,
+        auth_request_fixture(),
+        eq_auth_req
+    );
+    check!(
+        "auth_response",
+        AuthorizationResponse,
+        auth_response_fixture(),
+        eq_auth_resp
+    );
+    check!(
+        "payload_text",
+        MessagePayloadEnvelope,
+        payload_text_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_image",
+        MessagePayloadEnvelope,
+        payload_image_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_file",
+        MessagePayloadEnvelope,
+        payload_file_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_voice",
+        MessagePayloadEnvelope,
+        payload_voice_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_video",
+        MessagePayloadEnvelope,
+        payload_video_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_location",
+        MessagePayloadEnvelope,
+        payload_location_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_contact",
+        MessagePayloadEnvelope,
+        payload_contact_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_sticker",
+        MessagePayloadEnvelope,
+        payload_sticker_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_forward",
+        MessagePayloadEnvelope,
+        payload_forward_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
+    check!(
+        "payload_link",
+        MessagePayloadEnvelope,
+        payload_link_fixture(),
+        |a: &MessagePayloadEnvelope, b: &MessagePayloadEnvelope| a == b
+    );
 
     if !failures.is_empty() {
         eprintln!("\n{} fixture(s) failed:", failures.len());
@@ -386,7 +582,7 @@ fn verify() {
         }
         std::process::exit(1);
     }
-    println!("\nall {} TS-produced fixtures verified", 15);
+    println!("\nall {} TS-produced fixtures verified", 20);
 }
 
 // Equality helpers (these structs don't all derive PartialEq).
@@ -454,7 +650,10 @@ fn eq_push_msg(a: &PushMessageRequest, b: &PushMessageRequest) -> bool {
 
 fn eq_push_batch(a: &PushBatchRequest, b: &PushBatchRequest) -> bool {
     a.messages.len() == b.messages.len()
-        && a.messages.iter().zip(b.messages.iter()).all(|(x, y)| eq_push_msg(x, y))
+        && a.messages
+            .iter()
+            .zip(b.messages.iter())
+            .all(|(x, y)| eq_push_msg(x, y))
 }
 
 fn eq_client_info(a: &ClientInfo, b: &ClientInfo) -> bool {

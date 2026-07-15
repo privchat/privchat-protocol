@@ -129,7 +129,10 @@ impl FlatBufferMessage for PublishRequest {
             channel_id: view.channel_id(),
             topic: view.topic().map(|s| s.to_string()),
             timestamp: view.timestamp(),
-            payload: view.payload().map(|v| v.bytes().to_vec()).unwrap_or_default(),
+            payload: view
+                .payload()
+                .map(|v| v.bytes().to_vec())
+                .unwrap_or_default(),
             publisher: view.publisher().map(|s| s.to_string()),
             server_message_id,
         })

@@ -97,15 +97,13 @@ fn bench_send_message(c: &mut Criterion) {
 
     group.bench_function("decode/json", |b| {
         b.iter(|| {
-            let v: SendMessageRequest =
-                serde_json::from_slice(black_box(&json_bytes)).unwrap();
+            let v: SendMessageRequest = serde_json::from_slice(black_box(&json_bytes)).unwrap();
             v
         })
     });
     group.bench_function("decode/flatbuffers", |b| {
         b.iter(|| {
-            let v: SendMessageRequest =
-                decode_message(black_box(&fb_bytes)).unwrap();
+            let v: SendMessageRequest = decode_message(black_box(&fb_bytes)).unwrap();
             v
         })
     });
@@ -142,15 +140,13 @@ fn bench_push_message(c: &mut Criterion) {
 
     group.bench_function("decode/json", |b| {
         b.iter(|| {
-            let v: PushMessageRequest =
-                serde_json::from_slice(black_box(&json_bytes)).unwrap();
+            let v: PushMessageRequest = serde_json::from_slice(black_box(&json_bytes)).unwrap();
             v
         })
     });
     group.bench_function("decode/flatbuffers", |b| {
         b.iter(|| {
-            let v: PushMessageRequest =
-                decode_message(black_box(&fb_bytes)).unwrap();
+            let v: PushMessageRequest = decode_message(black_box(&fb_bytes)).unwrap();
             v
         })
     });
@@ -187,15 +183,13 @@ fn bench_push_batch_10(c: &mut Criterion) {
 
     group.bench_function("decode/json", |b| {
         b.iter(|| {
-            let v: PushBatchRequest =
-                serde_json::from_slice(black_box(&json_bytes)).unwrap();
+            let v: PushBatchRequest = serde_json::from_slice(black_box(&json_bytes)).unwrap();
             v
         })
     });
     group.bench_function("decode/flatbuffers", |b| {
         b.iter(|| {
-            let v: PushBatchRequest =
-                decode_message(black_box(&fb_bytes)).unwrap();
+            let v: PushBatchRequest = decode_message(black_box(&fb_bytes)).unwrap();
             v
         })
     });
@@ -203,5 +197,10 @@ fn bench_push_batch_10(c: &mut Criterion) {
     group.finish();
 }
 
-criterion_group!(benches, bench_send_message, bench_push_message, bench_push_batch_10);
+criterion_group!(
+    benches,
+    bench_send_message,
+    bench_push_message,
+    bench_push_batch_10
+);
 criterion_main!(benches);

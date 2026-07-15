@@ -19,7 +19,9 @@ where
 
 #[test]
 fn ping_request_roundtrip() {
-    let msg = PingRequest { timestamp: 1714680000_000 };
+    let msg = PingRequest {
+        timestamp: 1714680000_000,
+    };
     let got = roundtrip(&msg);
     assert_eq!(got.timestamp, msg.timestamp);
 }
@@ -65,7 +67,10 @@ fn disconnect_response_roundtrip() {
 #[test]
 fn send_message_request_roundtrip() {
     let mut msg = SendMessageRequest::new();
-    msg.setting = MessageSetting { need_receipt: true, signal: 7 };
+    msg.setting = MessageSetting {
+        need_receipt: true,
+        signal: 7,
+    };
     msg.client_seq = 42;
     msg.local_message_id = 0xDEADBEEF_CAFEBABE;
     msg.stream_no = "stream-1".to_string();
@@ -107,7 +112,10 @@ fn send_message_response_roundtrip() {
 #[test]
 fn push_message_request_roundtrip() {
     let msg = PushMessageRequest {
-        setting: MessageSetting { need_receipt: false, signal: 1 },
+        setting: MessageSetting {
+            need_receipt: false,
+            signal: 1,
+        },
         msg_key: "key-abc".to_string(),
         server_message_id: 12345,
         message_seq: 10,
@@ -136,8 +144,14 @@ fn push_message_request_roundtrip() {
 #[test]
 fn push_message_response_roundtrip() {
     let cases = [
-        PushMessageResponse { succeed: true, message: None },
-        PushMessageResponse { succeed: false, message: Some("err".to_string()) },
+        PushMessageResponse {
+            succeed: true,
+            message: None,
+        },
+        PushMessageResponse {
+            succeed: false,
+            message: Some("err".to_string()),
+        },
     ];
     for msg in &cases {
         let got = roundtrip(msg);
@@ -309,7 +323,8 @@ fn transfer_response_roundtrip() {
     assert_eq!(got.code, 0);
     assert_eq!(got.data, None); // empty [ubyte] decodes back to None
 
-    let resp_err = TransferResponse::error(req_id.clone(), 2817, 20902, "service not found".to_string());
+    let resp_err =
+        TransferResponse::error(req_id.clone(), 2817, 20902, "service not found".to_string());
     let got = roundtrip(&resp_err);
     assert_eq!(got.request_id, req_id);
     assert_eq!(got.channel_id, 2817);
@@ -476,6 +491,7 @@ fn payload_envelope_image_metadata_roundtrip() {
             height: 1080,
             thumbnail_file_id: Some(67890),
             thumbnail_url: Some("https://cdn.example/x_thumb.jpg".to_string()),
+            file_name: Some("photo.jpg".to_string()),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -490,7 +506,11 @@ fn payload_envelope_image_metadata_roundtrip() {
             assert_eq!(img.height, 1080);
             // 缩略图引用必须过 wire（Scheme B：thumbnail_file_id -> get_url -> cek）。
             assert_eq!(img.thumbnail_file_id, Some(67890));
-            assert_eq!(img.thumbnail_url.as_deref(), Some("https://cdn.example/x_thumb.jpg"));
+            assert_eq!(
+                img.thumbnail_url.as_deref(),
+                Some("https://cdn.example/x_thumb.jpg")
+            );
+            assert_eq!(img.file_name.as_deref(), Some("photo.jpg"));
         }
         other => panic!("expected Image metadata, got {:?}", other),
     }
@@ -508,6 +528,7 @@ fn payload_envelope_image_metadata_no_thumbnail_roundtrip() {
             height: 10,
             thumbnail_file_id: None,
             thumbnail_url: None,
+            file_name: None,
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -517,6 +538,7 @@ fn payload_envelope_image_metadata_no_thumbnail_roundtrip() {
         Some(MessageMetadata::Image(img)) => {
             assert_eq!(img.thumbnail_file_id, None);
             assert_eq!(img.thumbnail_url, None);
+            assert_eq!(img.file_name, None);
         }
         other => panic!("expected Image metadata, got {:?}", other),
     }
@@ -529,16 +551,21 @@ fn payload_envelope_voice_metadata_roundtrip() {
         metadata: Some(MessageMetadata::Voice(VoiceMetadata {
             file_id: 999,
             duration: 7,
+            file_name: Some("voice.m4a".to_string()),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
     };
     let got = roundtrip(&env);
-    assert!(matches!(
-        got.metadata,
-        Some(MessageMetadata::Voice(VoiceMetadata { file_id: 999, duration: 7 }))
-    ));
+    match got.metadata {
+        Some(MessageMetadata::Voice(voice)) => {
+            assert_eq!(voice.file_id, 999);
+            assert_eq!(voice.duration, 7);
+            assert_eq!(voice.file_name.as_deref(), Some("voice.m4a"));
+        }
+        other => panic!("expected Voice metadata, got {:?}", other),
+    }
 }
 
 #[test]
@@ -554,6 +581,7 @@ fn payload_envelope_video_metadata_roundtrip() {
             thumbnail_width: Some(320),
             thumbnail_height: Some(180),
             thumbnail_url: Some("https://cdn.example/v_thumb.jpg".to_string()),
+            file_name: Some("clip.mp4".to_string()),
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -568,7 +596,11 @@ fn payload_envelope_video_metadata_roundtrip() {
             assert_eq!(v.thumbnail_file_id, Some(5556));
             assert_eq!(v.thumbnail_width, Some(320));
             assert_eq!(v.thumbnail_height, Some(180));
-            assert_eq!(v.thumbnail_url.as_deref(), Some("https://cdn.example/v_thumb.jpg"));
+            assert_eq!(
+                v.thumbnail_url.as_deref(),
+                Some("https://cdn.example/v_thumb.jpg")
+            );
+            assert_eq!(v.file_name.as_deref(), Some("clip.mp4"));
         }
         other => panic!("expected Video metadata, got {:?}", other),
     }
@@ -585,6 +617,7 @@ fn payload_envelope_video_metadata_roundtrip() {
             thumbnail_width: None,
             thumbnail_height: None,
             thumbnail_url: None,
+            file_name: None,
         })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
@@ -595,6 +628,7 @@ fn payload_envelope_video_metadata_roundtrip() {
         assert_eq!(v.thumbnail_file_id, None);
         assert_eq!(v.thumbnail_width, None);
         assert_eq!(v.thumbnail_url, None);
+        assert_eq!(v.file_name, None);
     } else {
         panic!("expected Video metadata");
     }
@@ -604,16 +638,26 @@ fn payload_envelope_video_metadata_roundtrip() {
 fn payload_envelope_file_metadata_roundtrip() {
     let env = MessagePayloadEnvelope {
         content: "report.pdf".to_string(),
-        metadata: Some(MessageMetadata::File(FileMetadata { file_id: 42 })),
+        metadata: Some(MessageMetadata::File(FileMetadata {
+            file_id: 42,
+            file_name: Some("report.pdf".to_string()),
+            file_size: 1_048_576,
+            mime_type: Some("application/pdf".to_string()),
+        })),
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
     };
     let got = roundtrip(&env);
-    assert!(matches!(
-        got.metadata,
-        Some(MessageMetadata::File(FileMetadata { file_id: 42 }))
-    ));
+    match got.metadata {
+        Some(MessageMetadata::File(file)) => {
+            assert_eq!(file.file_id, 42);
+            assert_eq!(file.file_name.as_deref(), Some("report.pdf"));
+            assert_eq!(file.file_size, 1_048_576);
+            assert_eq!(file.mime_type.as_deref(), Some("application/pdf"));
+        }
+        other => panic!("expected File metadata, got {:?}", other),
+    }
 }
 
 #[test]
@@ -692,7 +736,9 @@ fn payload_envelope_contact_card_roundtrip() {
     let got = roundtrip(&env);
     assert!(matches!(
         got.metadata,
-        Some(MessageMetadata::ContactCard(ContactCardMetadata { user_id: 10001 }))
+        Some(MessageMetadata::ContactCard(ContactCardMetadata {
+            user_id: 10001
+        }))
     ));
 }
 
@@ -862,8 +908,15 @@ fn outbound_image_legacy_json_preserves_file_id_through_wire() {
 
     match decoded.metadata {
         Some(MessageMetadata::Image(img)) => {
-            assert_eq!(img.file_id, 166, "main file_id must survive the real send path");
-            assert_eq!(img.thumbnail_file_id, Some(165), "thumbnail_file_id must survive");
+            assert_eq!(
+                img.file_id, 166,
+                "main file_id must survive the real send path"
+            );
+            assert_eq!(
+                img.thumbnail_file_id,
+                Some(165),
+                "thumbnail_file_id must survive"
+            );
         }
         other => panic!("expected Image metadata with file_id, got {:?}", other),
     }

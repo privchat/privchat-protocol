@@ -47,10 +47,10 @@ pub mod presence;
 pub mod qr_login;
 pub mod qrcode;
 pub mod routes;
-/// 个人名片二维码 RPC（QR_CODE_SPEC v1.3，与遗留 qrcode/* 模块解耦）
-pub mod user_qrcode;
 pub mod sticker;
 pub mod sync;
+/// 个人名片二维码 RPC（QR_CODE_SPEC v1.3，与遗留 qrcode/* 模块解耦）
+pub mod user_qrcode;
 
 // 重导出所有类型，方便使用
 pub use account::*;

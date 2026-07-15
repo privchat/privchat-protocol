@@ -426,9 +426,15 @@ impl FlatBufferMessage for AuthorizationRequest {
 
 impl FlatBufferMessage for AuthorizationResponse {
     fn encode_fb_into(&self, builder: &mut FlatBufferBuilder<'_>) -> Result<(), ProtocolError> {
-        let error_message = self.error_message.as_ref().map(|s| builder.create_string(s));
+        let error_message = self
+            .error_message
+            .as_ref()
+            .map(|s| builder.create_string(s));
         let session_id = self.session_id.as_ref().map(|s| builder.create_string(s));
-        let connection_id = self.connection_id.as_ref().map(|s| builder.create_string(s));
+        let connection_id = self
+            .connection_id
+            .as_ref()
+            .map(|s| builder.create_string(s));
         let server_info = self
             .server_info
             .as_ref()

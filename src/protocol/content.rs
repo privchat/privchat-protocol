@@ -425,7 +425,10 @@ fn encode_location<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &LocationMetadata,
 ) -> flatbuffers::WIPOffset<fb::LocationMetadata<'a>> {
-    let coordinate_system = m.coordinate_system.as_ref().map(|s| builder.create_string(s));
+    let coordinate_system = m
+        .coordinate_system
+        .as_ref()
+        .map(|s| builder.create_string(s));
     let name = m.name.as_ref().map(|s| builder.create_string(s));
     let address = m.address.as_ref().map(|s| builder.create_string(s));
     let poi_id = m.poi_id.as_ref().map(|s| builder.create_string(s));
@@ -465,12 +468,7 @@ fn encode_contact<'a>(
     builder: &mut FlatBufferBuilder<'a>,
     m: &ContactCardMetadata,
 ) -> flatbuffers::WIPOffset<fb::ContactCardMetadata<'a>> {
-    fb::ContactCardMetadata::create(
-        builder,
-        &fb::ContactCardMetadataArgs {
-            user_id: m.user_id,
-        },
-    )
+    fb::ContactCardMetadata::create(builder, &fb::ContactCardMetadataArgs { user_id: m.user_id })
 }
 fn decode_contact(v: fb::ContactCardMetadata<'_>) -> ContactCardMetadata {
     ContactCardMetadata {
@@ -652,7 +650,10 @@ impl FlatBufferMessage for MessagePayloadEnvelope {
         };
 
         let mentioned_user_ids = builder.create_vector(&self.mentioned_user_ids);
-        let message_source = self.message_source.as_ref().map(|s| encode_source(builder, s));
+        let message_source = self
+            .message_source
+            .as_ref()
+            .map(|s| encode_source(builder, s));
 
         let args = fb::MessagePayloadEnvelopeArgs {
             content: Some(content),

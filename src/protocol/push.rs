@@ -196,7 +196,10 @@ fn decode_push(view: fb::PushMessageRequest<'_>) -> PushMessageRequest {
         expire: view.expire(),
         topic: view.topic().unwrap_or("").to_string(),
         from_uid: view.from_uid(),
-        payload: view.payload().map(|v| v.bytes().to_vec()).unwrap_or_default(),
+        payload: view
+            .payload()
+            .map(|v| v.bytes().to_vec())
+            .unwrap_or_default(),
         deleted: view.deleted(),
     }
 }

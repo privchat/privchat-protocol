@@ -115,8 +115,8 @@ pub struct FriendRemoveRequest {
 pub struct FriendApplyResponse {
     pub user_id: u64,
     pub username: String,
-    pub status: String,   // "pending"
-    pub added_at: u64, // Unix 毫秒时间戳
+    pub status: String, // "pending"
+    pub added_at: u64,  // Unix 毫秒时间戳
     pub message: Option<String>,
 }
 
