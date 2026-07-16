@@ -50,6 +50,28 @@ pub struct LocalMessagePayloadEnvelope {
     pub message_source: Option<MessageSource>,
 }
 
+/// Typed metadata used while a local attachment is being prepared.
+///
+/// This is a local persistence contract, not a wire payload. Platform wrappers
+/// pass these fields through FFI and the Rust SDK serializes the structure for
+/// its legacy SQLite `extra` column. Keeping the structure here prevents each
+/// platform from inventing a JSON shape independently.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LocalAttachmentMetadata {
+    pub file_name: String,
+    pub mime_type: String,
+    #[serde(default)]
+    pub duration: Option<u32>,
+    #[serde(default)]
+    pub width: Option<u32>,
+    #[serde(default)]
+    pub height: Option<u32>,
+    #[serde(default)]
+    pub thumbnail_width: Option<u32>,
+    #[serde(default)]
+    pub thumbnail_height: Option<u32>,
+}
+
 /// Content message type (u32 wire). Numeric values are PERMANENT; only
 /// add new variants at the end. Unknown values are surfaced as `None`
 /// from `from_u32` and rendered as a fallback bubble by clients.
@@ -133,5 +155,28 @@ impl ContentMessageType {
             ContentMessageType::RedPacket => "red_packet",
             ContentMessageType::MoneyTransfer => "money_transfer",
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::LocalAttachmentMetadata;
+
+    #[test]
+    fn local_attachment_metadata_has_protocol_owned_field_names() {
+        let metadata = LocalAttachmentMetadata {
+            file_name: "clip.mp4".to_string(),
+            mime_type: "video/mp4".to_string(),
+            duration: Some(7),
+            width: Some(1920),
+            height: Some(1080),
+            thumbnail_width: None,
+            thumbnail_height: None,
+        };
+        let encoded = serde_json::to_value(metadata).expect("serialize metadata");
+        assert_eq!(encoded["file_name"], "clip.mp4");
+        assert_eq!(encoded["mime_type"], "video/mp4");
+        assert_eq!(encoded["duration"], 7);
+        assert!(encoded["thumbnail_width"].is_null());
     }
 }
