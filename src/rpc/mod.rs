@@ -55,7 +55,14 @@ pub mod user_qrcode;
 // 重导出所有类型，方便使用
 pub use account::*;
 pub use auth::*;
-pub use channel::*;
+// Do not glob-reexport `channel`: both channel and message expose a `pin`
+// module, which would make `rpc::pin` ambiguous. Keep the type-level root
+// compatibility surface without exporting either module name.
+pub use channel::{
+    ChannelHideRequest, ChannelHideResponse, ChannelMuteRequest, ChannelMuteResponse,
+    ChannelPinRequest, ChannelPinResponse, GetOrCreateDirectChannelRequest,
+    GetOrCreateDirectChannelResponse,
+};
 pub use channel_broadcast::*;
 pub use contact::*;
 pub use device::*;

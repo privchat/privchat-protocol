@@ -23,7 +23,8 @@ use serde::{Deserialize, Serialize};
 /// RPC路由: `channel/pin`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChannelPinRequest {
-    /// 用户ID
+    /// 用户ID（服务器端填充，客户端不可设置）
+    #[serde(skip_deserializing, default)]
     pub user_id: u64,
     /// 频道ID
     pub channel_id: u64,
@@ -36,3 +37,36 @@ pub struct ChannelPinRequest {
 /// RPC路由: `channel/pin`
 /// 简单操作，返回 true（成功/失败由协议层 code 处理）
 pub type ChannelPinResponse = bool;
+
+#[cfg(test)]
+mod tests {
+    use super::ChannelPinRequest;
+    use serde_json::json;
+
+    #[test]
+    fn pin_request_does_not_require_client_user_id() {
+        let request: ChannelPinRequest = serde_json::from_value(json!({
+            "channel_id": 42,
+            "pinned": true
+        }))
+        .expect("channel pin payload should not require user_id");
+
+        assert_eq!(request.user_id, 0);
+        assert_eq!(request.channel_id, 42);
+        assert!(request.pinned);
+    }
+
+    #[test]
+    fn pin_request_ignores_spoofed_client_user_id() {
+        let request: ChannelPinRequest = serde_json::from_value(json!({
+            "user_id": 999,
+            "channel_id": 42,
+            "pinned": false
+        }))
+        .expect("channel pin payload should deserialize");
+
+        assert_eq!(request.user_id, 0);
+        assert_eq!(request.channel_id, 42);
+        assert!(!request.pinned);
+    }
+}
