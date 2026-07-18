@@ -73,6 +73,10 @@ pub mod content_generated {
 pub mod timeline_generated {
     include!(concat!(env!("OUT_DIR"), "/timeline_generated.rs"));
 }
+#[allow(unused_imports, dead_code, clippy::all, mismatched_lifetime_syntaxes)]
+pub mod entity_sync_generated {
+    include!(concat!(env!("OUT_DIR"), "/entity_sync_generated.rs"));
+}
 
 /// Aggregated re-export of all generated FlatBuffers view types.
 /// Internal use; application layer should prefer owned types in `protocol`.
@@ -81,6 +85,7 @@ pub mod fb {
     pub use crate::common_generated::privchat::protocol::*;
     pub use crate::content_generated::privchat::protocol::*;
     pub use crate::disconnect_generated::privchat::protocol::*;
+    pub use crate::entity_sync_generated::privchat::protocol::*;
     pub use crate::ping_generated::privchat::protocol::*;
     pub use crate::publish_generated::privchat::protocol::*;
     pub use crate::push_generated::privchat::protocol::*;

@@ -22,6 +22,7 @@ const SCHEMAS: &[&str] = &[
     "transfer.fbs",
     "content.fbs",
     "timeline.fbs",
+    "entity_sync.fbs",
 ];
 
 const SCHEMA_MODULES: &[&str] = &[
@@ -37,6 +38,7 @@ const SCHEMA_MODULES: &[&str] = &[
     "transfer_generated",
     "content_generated",
     "timeline_generated",
+    "entity_sync_generated",
 ];
 
 fn main() {

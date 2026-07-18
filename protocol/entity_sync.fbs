@@ -1,0 +1,27 @@
+// Generic server-to-client entity invalidation control plane.
+// The payload is carried by PushMessageRequest topic="entity.invalidation.v1".
+
+namespace privchat.protocol;
+
+enum EntityMutationHint : ubyte {
+  Unknown = 0,
+  Upsert = 1,
+  Delete = 2,
+}
+
+table EntityInvalidation {
+  entity_type    : string (required);
+  entity_id      : string;
+  scope          : string;
+  target_version : ulong;
+  mutation_hint  : EntityMutationHint = Unknown;
+}
+
+table EntityInvalidationBatch {
+  schema_version   : uint = 1;
+  notification_id : ulong;
+  items            : [EntityInvalidation] (required);
+  committed_at_ms  : long;
+}
+
+root_type EntityInvalidationBatch;
