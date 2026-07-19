@@ -644,6 +644,11 @@ pub struct ChannelSyncPayload {
     pub unread_count: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_msg_content: Option<String>,
+    /// Last message content type (`text`, `image`, ...). Additive so older
+    /// clients continue to use `last_msg_content`; new clients must prefer it
+    /// instead of guessing from an empty media caption.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_msg_type: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_msg_timestamp: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
