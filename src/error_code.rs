@@ -219,6 +219,8 @@ pub enum ErrorCode {
     CannotRemoveOwner = 20309,
     /// Join approval required
     JoinApprovalRequired = 20310,
+    /// Group forbids members adding each other as friends
+    GroupAddFriendDisabled = 20311,
 
     // Friend Basics (20400-20499)
     /// Friend not found
@@ -395,6 +397,7 @@ impl ErrorCode {
             Self::MemberAlreadyInGroup => "Member already in group",
             Self::CannotRemoveOwner => "Cannot remove owner",
             Self::JoinApprovalRequired => "Join approval required",
+            Self::GroupAddFriendDisabled => "Group forbids members adding each other as friends",
             Self::FriendNotFound => "Friend not found",
             Self::AlreadyFriends => "Already friends",
             Self::BlockedByUser => "Blocked by user",
@@ -518,6 +521,7 @@ impl ErrorCode {
             20308 => Some(Self::MemberAlreadyInGroup),
             20309 => Some(Self::CannotRemoveOwner),
             20310 => Some(Self::JoinApprovalRequired),
+            20311 => Some(Self::GroupAddFriendDisabled),
             20400 => Some(Self::FriendNotFound),
             20401 => Some(Self::AlreadyFriends),
             20402 => Some(Self::BlockedByUser),
