@@ -37,6 +37,12 @@ pub struct FriendApplyRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_id: Option<String>,
 
+    /// 查看凭证（PROFILE_VISIBILITY §2.5.1）：`account/user/detail` 下发的
+    /// grant_id（u64 走字符串防 JS 精度丢失）。携带时服务端按凭证放行
+    /// （不再重跑来源校验）；缺省走旧 source/source_id 校验路径（滚动兼容）。
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub grant_id: Option<String>,
+
     /// 申请者ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub from_user_id: u64,

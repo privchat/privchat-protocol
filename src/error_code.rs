@@ -221,6 +221,10 @@ pub enum ErrorCode {
     JoinApprovalRequired = 20310,
     /// Group forbids members adding each other as friends
     GroupAddFriendDisabled = 20311,
+    /// Target user's privacy disallows being added via group chat
+    GroupAddFriendPersonalDisabled = 20312,
+    /// Profile view grant expired or invalid; re-fetch user detail
+    ProfileViewGrantExpired = 20313,
 
     // Friend Basics (20400-20499)
     /// Friend not found
@@ -398,6 +402,8 @@ impl ErrorCode {
             Self::CannotRemoveOwner => "Cannot remove owner",
             Self::JoinApprovalRequired => "Join approval required",
             Self::GroupAddFriendDisabled => "Group forbids members adding each other as friends",
+            Self::GroupAddFriendPersonalDisabled => "User does not allow being added via group chat",
+            Self::ProfileViewGrantExpired => "Profile view grant expired",
             Self::FriendNotFound => "Friend not found",
             Self::AlreadyFriends => "Already friends",
             Self::BlockedByUser => "Blocked by user",
@@ -522,6 +528,8 @@ impl ErrorCode {
             20309 => Some(Self::CannotRemoveOwner),
             20310 => Some(Self::JoinApprovalRequired),
             20311 => Some(Self::GroupAddFriendDisabled),
+            20312 => Some(Self::GroupAddFriendPersonalDisabled),
+            20313 => Some(Self::ProfileViewGrantExpired),
             20400 => Some(Self::FriendNotFound),
             20401 => Some(Self::AlreadyFriends),
             20402 => Some(Self::BlockedByUser),
