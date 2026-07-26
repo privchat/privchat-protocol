@@ -138,6 +138,13 @@ pub enum ErrorCode {
     DuplicateOperation = 10204,
     /// Operation conflict
     OperationConflict = 10205,
+    /// Attachment retry has no local source file left to upload.
+    /// Distinct from a generic failure: the UI must ask the user to pick the file
+    /// again rather than offering a retry that can never succeed.
+    AttachmentSourceMissing = 10206,
+    /// Client session is not authenticated yet (connecting / reconnecting).
+    /// Retryable: the caller should wait for the session instead of surfacing a failure.
+    SessionNotReady = 10207,
 
     // Rate Limiting (10300-10399)
     /// Rate limit exceeded
@@ -365,6 +372,8 @@ impl ErrorCode {
             Self::ResourceDeleted => "Resource deleted",
             Self::DuplicateOperation => "Duplicate operation",
             Self::OperationConflict => "Operation conflict",
+            Self::AttachmentSourceMissing => "Attachment source file is no longer available",
+            Self::SessionNotReady => "Session is not ready yet, please retry shortly",
             Self::RateLimitExceeded => "Rate limit exceeded",
             Self::DailyQuotaExceeded => "Daily quota exceeded",
             Self::MonthlyQuotaExceeded => "Monthly quota exceeded",
@@ -491,6 +500,8 @@ impl ErrorCode {
             10203 => Some(Self::ResourceDeleted),
             10204 => Some(Self::DuplicateOperation),
             10205 => Some(Self::OperationConflict),
+            10206 => Some(Self::AttachmentSourceMissing),
+            10207 => Some(Self::SessionNotReady),
             10300 => Some(Self::RateLimitExceeded),
             10301 => Some(Self::DailyQuotaExceeded),
             10302 => Some(Self::MonthlyQuotaExceeded),
