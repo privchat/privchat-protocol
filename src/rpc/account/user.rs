@@ -37,6 +37,12 @@ pub enum DetailSourceType {
     CardShare,
     /// 临时会话来源（聊天界面查看对方资料），source_id = channel_id
     Conversation,
+    /// 本人查本人（我的资料页/资料变更后刷新），source_id = 自己的 user_id。
+    ///
+    /// 本人不需要任何外部来源即可看自己的完整资料；此前客户端没有可用的来源值，
+    /// 只能谎称 friend，于是被服务端判成「你不是你自己的好友」而整体拒绝
+    /// （2026-07-26 生产 876 次/天）。additive 新增，老客户端不受影响。
+    SelfProfile,
 }
 
 impl DetailSourceType {
@@ -48,6 +54,7 @@ impl DetailSourceType {
             Self::FriendPending => "friend_pending",
             Self::CardShare => "card_share",
             Self::Conversation => "conversation",
+            Self::SelfProfile => "self",
         }
     }
 
@@ -59,6 +66,7 @@ impl DetailSourceType {
             "friend_pending" => Some(Self::FriendPending),
             "card_share" => Some(Self::CardShare),
             "conversation" => Some(Self::Conversation),
+            "self" => Some(Self::SelfProfile),
             _ => None,
         }
     }
