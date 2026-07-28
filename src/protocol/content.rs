@@ -325,6 +325,33 @@ mod tests {
                 .is_empty()
         );
     }
+
+    /// The legacy JSON path must agree with the FlatBuffers decoder on what
+    /// "no reply" looks like. Production payloads carry the stringified
+    /// `"null"` (a sender that serialized an absent optional), and `0` is the
+    /// wire sentinel — either one leaking through reads downstream as a real
+    /// reply anchor and renders an "original unavailable" quote strip.
+    #[test]
+    fn legacy_reply_anchor_rejects_sentinels_and_junk() {
+        let envelope = |reply: Option<&str>| {
+            MessagePayloadEnvelope::from_legacy(
+                &crate::message::LocalMessagePayloadEnvelope {
+                    content: "hi".to_string(),
+                    metadata: None,
+                    reply_to_message_id: reply.map(str::to_string),
+                    mentioned_user_ids: None,
+                    message_source: None,
+                },
+                crate::message::ContentMessageType::Text,
+            )
+            .reply_to_message_id
+        };
+
+        for absent in [None, Some("null"), Some("undefined"), Some(""), Some("0"), Some("abc")] {
+            assert_eq!(envelope(absent), None, "expected no anchor for {absent:?}");
+        }
+        assert_eq!(envelope(Some("600997771041832960")), Some(600997771041832960));
+    }
 }
 
 impl MessagePayloadEnvelope {
@@ -339,10 +366,16 @@ impl MessagePayloadEnvelope {
             .metadata
             .as_ref()
             .and_then(|v| MessageMetadata::from_json_value(content_type, v));
+        // `0` is the "no reply" sentinel on the FlatBuffers side (see
+        // `decode_payload_envelope`), so the legacy JSON path must agree —
+        // otherwise `Some(0)` travels on as a reference to message 0.
+        // Non-numeric junk (senders that stringified an absent optional into
+        // `"null"`) already falls out via `parse`.
         let reply_to_message_id = legacy
             .reply_to_message_id
             .as_ref()
-            .and_then(|s| s.parse::<u64>().ok());
+            .and_then(|s| s.parse::<u64>().ok())
+            .filter(|id| *id != 0);
         let mentioned_user_ids = legacy.mentioned_user_ids.clone().unwrap_or_default();
         Self {
             content: legacy.content.clone(),
