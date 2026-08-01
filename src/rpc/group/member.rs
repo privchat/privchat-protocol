@@ -115,13 +115,43 @@ pub struct GroupMemberUnmuteRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupMemberInfo {
     pub user_id: u64,
+    /// 群内备注/群名片；与全局 nickname 分域。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub alias: Option<String>,
     pub username: String,
     pub nickname: String,
+    /// 服务端在当前可见字段内解析的基础显示名。SDK 可再用本地 user alias 覆盖。
+    #[serde(default)]
+    pub display_name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
+    #[serde(default)]
+    pub user_type: i16,
     pub role: String,
     pub joined_at: u64,
     pub is_muted: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::GroupMemberInfo;
+
+    #[test]
+    fn old_server_member_payload_defaults_new_projection_fields() {
+        let member: GroupMemberInfo = serde_json::from_value(serde_json::json!({
+            "user_id": 42,
+            "username": "",
+            "nickname": "Alice",
+            "role": "member",
+            "joined_at": 1,
+            "is_muted": false
+        }))
+        .expect("legacy group member payload");
+
+        assert_eq!(member.alias, None);
+        assert_eq!(member.display_name, "");
+        assert_eq!(member.user_type, 0);
+    }
 }
 
 /// 获取群组成员列表响应
