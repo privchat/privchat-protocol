@@ -411,9 +411,7 @@ impl ErrorCode {
             Self::CannotRemoveOwner => "Cannot remove owner",
             Self::JoinApprovalRequired => "Join approval required",
             Self::GroupAddFriendDisabled => "Group forbids members adding each other as friends",
-            Self::GroupAddFriendPersonalDisabled => {
-                "User does not allow being added via group chat"
-            }
+            Self::GroupAddFriendPersonalDisabled => "User does not allow being added via group chat",
             Self::ProfileViewGrantExpired => "Profile view grant expired",
             Self::FriendNotFound => "Friend not found",
             Self::AlreadyFriends => "Already friends",
