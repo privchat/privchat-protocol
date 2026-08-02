@@ -696,6 +696,10 @@ pub struct GroupMemberSyncPayload {
     pub user_id: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<u64>,
+    /// 角色的**线上数值编码**，权威定义见
+    /// [`crate::rpc::group::role::GroupMemberRole`]（Owner=0/Admin=1/Member=2）。
+    /// 解析请用 `GroupMemberRole::from_wire_i32`，不要在各端再写一遍 match——
+    /// 客户端本地存储若用别的编码，必须在读写边界显式转换。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<i32>,
     #[serde(skip_serializing_if = "Option::is_none")]

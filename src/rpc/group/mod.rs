@@ -20,6 +20,8 @@ pub mod group;
 pub mod member;
 pub mod member_mute;
 pub mod qrcode;
+/// 群成员角色的**唯一权威定义**（数值/字符串两种线上编码都在这里冻结）。
+pub mod role;
 /// 群组相关 RPC 类型定义
 pub mod role_set;
 pub mod settings;
