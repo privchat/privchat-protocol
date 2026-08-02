@@ -347,10 +347,20 @@ mod tests {
             .reply_to_message_id
         };
 
-        for absent in [None, Some("null"), Some("undefined"), Some(""), Some("0"), Some("abc")] {
+        for absent in [
+            None,
+            Some("null"),
+            Some("undefined"),
+            Some(""),
+            Some("0"),
+            Some("abc"),
+        ] {
             assert_eq!(envelope(absent), None, "expected no anchor for {absent:?}");
         }
-        assert_eq!(envelope(Some("600997771041832960")), Some(600997771041832960));
+        assert_eq!(
+            envelope(Some("600997771041832960")),
+            Some(600997771041832960)
+        );
     }
 }
 

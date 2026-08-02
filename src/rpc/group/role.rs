@@ -138,15 +138,24 @@ mod tests {
         assert_eq!(GroupMemberRole::from_wire_i32(99), GroupMemberRole::Member);
         assert_eq!(GroupMemberRole::from_wire_i32(-1), GroupMemberRole::Member);
         assert_eq!(GroupMemberRole::from_wire_str(""), GroupMemberRole::Member);
-        assert_eq!(GroupMemberRole::from_wire_str("god"), GroupMemberRole::Member);
+        assert_eq!(
+            GroupMemberRole::from_wire_str("god"),
+            GroupMemberRole::Member
+        );
         assert_eq!(GroupMemberRole::default(), GroupMemberRole::Member);
     }
 
     #[test]
     fn legacy_capitalised_strings_still_read() {
         // 老服务端发过 Debug 形态；能读，但不许再写。
-        assert_eq!(GroupMemberRole::from_wire_str("Owner"), GroupMemberRole::Owner);
-        assert_eq!(GroupMemberRole::from_wire_str(" ADMIN "), GroupMemberRole::Admin);
+        assert_eq!(
+            GroupMemberRole::from_wire_str("Owner"),
+            GroupMemberRole::Owner
+        );
+        assert_eq!(
+            GroupMemberRole::from_wire_str(" ADMIN "),
+            GroupMemberRole::Admin
+        );
     }
 
     #[test]
