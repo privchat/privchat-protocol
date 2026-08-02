@@ -26,6 +26,16 @@ pub struct GroupMemberListRequest {
     /// 群组ID
     pub group_id: u64,
 
+    /// 本页最多返回多少条；`None` = 全量（老客户端行为）。上限见服务端 `MAX_PAGE`。
+    ///
+    /// 九宫格头像只需要前 9 个成员，却曾经拉走整份花名册——750 人群 126 KB。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
+
+    /// 跳过前多少条（按加入时间升序）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<u32>,
+
     /// 请求者ID（服务器端填充，客户端不可设置）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
