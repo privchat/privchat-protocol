@@ -80,4 +80,17 @@ pub struct GroupInfoResponse {
     pub is_archived: Option<bool>,
     pub tags: Option<serde_json::Value>,
     pub custom_fields: Option<serde_json::Value>,
+
+    /// 请求者在本群的角色（小写契约："owner"/"admin"/"member"；非成员为 ""）。
+    ///
+    /// 客户端判断「我能不能管理这个群」MUST 读它，**不许**去拉整份花名册里找自己：
+    /// 一个 750 人的群那是 126 KB，而会话列表里每个大群都要判一次。
+    /// 见 CHANNEL_SPEC §9.2.2。
+    #[serde(default)]
+    pub my_role: String,
+
+    /// 管理员 uid 列表（群主见 `owner_id`）。有界——一个群的管理员只有个位数，
+    /// 让气泡上的【群主】/【管理】标签不必依赖花名册。
+    #[serde(default)]
+    pub admin_user_ids: Vec<u64>,
 }
