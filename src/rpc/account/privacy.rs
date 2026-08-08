@@ -36,6 +36,9 @@ pub struct AccountPrivacyUpdateRequest {
     /// 是否允许通过群组添加（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_add_by_group: Option<bool>,
+    /// 是否允许通过名片添加（可选）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_add_by_card: Option<bool>,
     /// 是否允许通过手机号搜索（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub allow_search_by_phone: Option<bool>,
