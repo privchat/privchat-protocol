@@ -52,6 +52,17 @@ pub struct GroupSettingsPatch {
     /// 是否全员禁言（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub all_muted: Option<bool>,
+    /// 普通成员是否可以发言（可选）。false 时只有群主/管理员能发言。
+    ///
+    /// 与 `all_muted` 的区别：`all_muted` 是「临时把所有人闭麦」，这条是「本群常态只读」，
+    /// 例如公告群。两者独立，任一为限制态即拒绝发送。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub allow_member_post: Option<bool>,
+    /// 是否禁止把本群消息转发出去（可选，内容保护）。
+    ///
+    /// 只拦截**之后**的转发；已经存在的副本是目标会话里的独立消息，不追溯。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub forbid_forward: Option<bool>,
     /// 最大成员数（可选）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_members: Option<u32>,
@@ -130,6 +141,12 @@ pub struct GroupSettingsData {
     #[serde(default = "default_join_policy")]
     pub join_policy: u8,
     pub all_muted: bool,
+    /// 普通成员是否可以发言（默认 true）
+    #[serde(default = "default_true")]
+    pub allow_member_post: bool,
+    /// 是否禁止转发本群消息（默认 false）
+    #[serde(default)]
+    pub forbid_forward: bool,
     pub max_members: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub announcement: Option<String>,
