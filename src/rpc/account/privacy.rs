@@ -18,6 +18,11 @@
 /// 隐私设置相关 RPC
 use serde::{Deserialize, Serialize};
 
+/// serde 默认值：true（老 server 不下发新开关时按放开处理）
+fn default_true() -> bool {
+    true
+}
+
 /// 获取隐私设置请求
 ///
 /// RPC路由: `account/privacy/get`
@@ -70,6 +75,9 @@ pub struct AccountPrivacyUpdateRequest {
 pub struct AccountPrivacySettings {
     pub user_id: u64,
     pub allow_add_by_group: bool,
+    /// 名片分享添加。老 server 不下发时按 `true` 处理，与其它开关的缺省方向一致。
+    #[serde(default = "default_true")]
+    pub allow_add_by_card: bool,
     pub allow_search_by_phone: bool,
     pub allow_search_by_username: bool,
     pub allow_search_by_email: bool,
@@ -86,6 +94,9 @@ pub struct AccountPrivacySettings {
 pub struct AccountPrivacyGetResponse {
     pub user_id: u64,
     pub allow_add_by_group: bool,
+    /// 名片分享添加。老 server 不下发时按 `true` 处理，与其它开关的缺省方向一致。
+    #[serde(default = "default_true")]
+    pub allow_add_by_card: bool,
     pub allow_search_by_phone: bool,
     pub allow_search_by_username: bool,
     pub allow_search_by_email: bool,
@@ -104,6 +115,9 @@ pub struct AccountPrivacyUpdateResponse {
     pub user_id: u64,
     pub message: String,
     pub allow_add_by_group: bool,
+    /// 名片分享添加。老 server 不下发时按 `true` 处理，与其它开关的缺省方向一致。
+    #[serde(default = "default_true")]
+    pub allow_add_by_card: bool,
     pub allow_search_by_phone: bool,
     pub allow_search_by_username: bool,
     pub allow_search_by_email: bool,
