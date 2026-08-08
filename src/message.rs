@@ -48,6 +48,13 @@ pub struct LocalMessagePayloadEnvelope {
     pub reply_to_message_id: Option<String>,
     pub mentioned_user_ids: Option<Vec<u64>>,
     pub message_source: Option<MessageSource>,
+    /// 转发来源（`MEDIA_REFERENCE_AND_FORWARD_SPEC` §6.2）。
+    ///
+    /// 🔴 这是**客户端实际解析的那一层**。只放进 canonical envelope 而不放这里，
+    /// 副本落库、推送、历史里都不带来源，接收端与新设备显示不出「转发自」——
+    /// 那样等于只完成了写库。可选字段，老客户端忽略即可。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub forward_origin: Option<crate::ForwardOriginSnapshot>,
 }
 
 /// Typed metadata used while a local attachment is being prepared.

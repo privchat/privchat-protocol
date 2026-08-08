@@ -471,6 +471,7 @@ fn payload_envelope_text_no_metadata_roundtrip() {
         reply_to_message_id: Some(0xCAFE_BABE),
         mentioned_user_ids: vec![100, 200, 300],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     assert_eq!(got.content, env.content);
@@ -496,6 +497,7 @@ fn payload_envelope_image_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     match got.metadata {
@@ -533,6 +535,7 @@ fn payload_envelope_image_metadata_no_thumbnail_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     match roundtrip(&env).metadata {
         Some(MessageMetadata::Image(img)) => {
@@ -556,6 +559,7 @@ fn payload_envelope_voice_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     match got.metadata {
@@ -586,6 +590,7 @@ fn payload_envelope_video_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     match got.metadata {
@@ -622,6 +627,7 @@ fn payload_envelope_video_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got2 = roundtrip(&env2);
     if let Some(MessageMetadata::Video(v)) = got2.metadata {
@@ -647,6 +653,7 @@ fn payload_envelope_file_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     match got.metadata {
@@ -677,6 +684,7 @@ fn payload_envelope_location_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     if let Some(MessageMetadata::Location(loc)) = got.metadata {
@@ -706,6 +714,7 @@ fn payload_envelope_location_extended_metadata_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     if let Some(MessageMetadata::Location(loc)) = got.metadata {
@@ -732,6 +741,7 @@ fn payload_envelope_contact_card_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     assert!(matches!(
@@ -753,6 +763,7 @@ fn payload_envelope_sticker_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     if let Some(MessageMetadata::Sticker(s)) = got.metadata {
@@ -784,6 +795,7 @@ fn payload_envelope_forward_roundtrip() {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     if let Some(MessageMetadata::Forward(fwd)) = got.metadata {
@@ -812,6 +824,7 @@ fn payload_envelope_link_roundtrip() {
         reply_to_message_id: Some(42),
         mentioned_user_ids: vec![],
         message_source: None,
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     if let Some(MessageMetadata::Link(l)) = got.metadata {
@@ -836,6 +849,7 @@ fn payload_envelope_message_source_roundtrip() {
             source_type: "qrcode".to_string(),
             source_id: "qr-token-abc".to_string(),
         }),
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     let src = got.message_source.expect("source must roundtrip");
@@ -855,6 +869,7 @@ fn payload_envelope_full_combination() {
             source_type: "search".to_string(),
             source_id: "session-99".to_string(),
         }),
+        forward_origin: None,
     };
     let got = roundtrip(&env);
     assert_eq!(got.content, env.content);
@@ -900,6 +915,7 @@ fn outbound_image_legacy_json_preserves_file_id_through_wire() {
         reply_to_message_id: None,
         mentioned_user_ids: None,
         message_source: None,
+        forward_origin: None,
     };
 
     let typed = MessagePayloadEnvelope::from_legacy(&legacy, ContentMessageType::Image);

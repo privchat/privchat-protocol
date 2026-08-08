@@ -248,6 +248,8 @@ fn payload_from_legacy_commit(
         reply_to_message_id: None,
         mentioned_user_ids: Vec::new(),
         message_source: None,
+        // legacy 投影没有这个字段；转发副本的来源走 JSON 投影下发（§6.2）。
+        forward_origin: None,
     })
 }
 
