@@ -36,6 +36,21 @@ pub struct FileRequestUploadTokenRequest {
     pub file_type: String,
     /// 业务类型 (message/avatar/group_avatar等)
     pub business_type: String,
+    /// 最终内容的 SHA-256（十六进制，64 字符）。
+    ///
+    /// 「最终」= **压缩/转码之后、加密之前**。客户端第二次发同一份媒体时若再压一遍，
+    /// 字节会变、摘要会变，秒传就永远命中不了——所以首次处理完就要把这份字节
+    /// 连同摘要一起留住，之后任何再发都直接用它。
+    ///
+    /// 不带这个字段 = 老客户端，照常走完整上传。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<String>,
+    /// 产出这份字节的客户端处理版本；0 / 缺省 = 原始未处理。
+    ///
+    /// 仅作元数据，**不参与**秒传判定：身份只看内容摘要。字节不同摘要自然不同，
+    /// 字节相同就该复用——因为压缩器版本号不同而重复存一份，是白占存储。
+    #[serde(default)]
+    pub transform_version: i32,
 }
 
 /// 上传回调请求
@@ -62,6 +77,15 @@ pub struct FileRequestUploadTokenResponse {
     /// 历史兼容字段：部分服务端未返回 file_id，默认空字符串
     #[serde(default)]
     pub file_id: String,
+    /// 服务端已经有这份内容：**不必上传字节**。
+    ///
+    /// 🔴 这只是**告知**，本次调用不产生任何句柄。要拿到自己的 `file_id`，
+    /// 带这个 token 和 sha256 去调 `file/claim_existing`。
+    ///
+    /// 探测与取得所有权必须分开：探测会被重试，合在一起的话每重试一次
+    /// 就多给调用方一份文件记录，攒出一堆没有任何消息使用的孤儿句柄。
+    #[serde(default)]
+    pub already_exists: bool,
     /// 可选：token 过期时间（Unix 秒）
     #[serde(default)]
     pub expires_at: Option<i64>,
