@@ -153,9 +153,6 @@ pub mod message {
     pub const PIN: &str = "message/pin";
     /// 获取群置顶消息列表
     pub const PIN_LIST: &str = "message/pin/list";
-    /// 单条转发（MEDIA_REFERENCE_AND_FORWARD_SPEC §6）。
-    /// 客户端只提交「转发哪条、转到哪」，媒体引用由服务端从源消息复制。
-    pub const FORWARD: &str = "message/forward";
 }
 
 /// 消息历史路由
