@@ -133,6 +133,13 @@ pub struct FileGetUrlResponse {
     /// CEK（base64url 32B）；nonce 在密文 blob 头部。version=0 时 None。绝不进 URL/日志。
     #[serde(default)]
     pub cek: Option<String>,
+    /// 服务端对**已存储字节**算出的 SHA-256。
+    ///
+    /// 转发一份已有附件时用它：客户端直接拿这个摘要去 prepare + claim，
+    /// 不必把文件下下来重算，也不必重新加密（重新加密会产出另一串字节，
+    /// 那本来就是另一个物理文件）。老记录没有可用摘要时为空。
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 /// 上传回调响应
