@@ -198,7 +198,6 @@ fn payload_text_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -220,7 +219,6 @@ fn payload_image_fixture() -> MessagePayloadEnvelope {
             source_type: "group".to_string(),
             source_id: "g-42".to_string(),
         }),
-        forward_origin: None,
     }
 }
 
@@ -241,7 +239,6 @@ fn payload_video_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -257,7 +254,6 @@ fn payload_file_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -272,7 +268,6 @@ fn payload_voice_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -292,7 +287,6 @@ fn payload_location_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -305,7 +299,6 @@ fn payload_contact_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -319,7 +312,6 @@ fn payload_sticker_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -348,7 +340,6 @@ fn payload_forward_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 
@@ -364,7 +355,6 @@ fn payload_link_fixture() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
-        forward_origin: None,
     }
 }
 

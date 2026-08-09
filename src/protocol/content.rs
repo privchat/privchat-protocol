@@ -225,27 +225,8 @@ pub struct MessagePayloadEnvelope {
     pub mentioned_user_ids: Vec<u64>,
     /// Stranger-message source descriptor; absent for friend messages.
     pub message_source: Option<MessageSource>,
-    /// 转发来源（`MEDIA_REFERENCE_AND_FORWARD_SPEC` §6.2）。
-    ///
-    /// 🔴 副本必须**自带**来源，不能让客户端回头去查源消息：源消息可能在别的
-    /// 会话里、可能已被删除，接收方甚至无权读它。只落库不进投影的话，
-    /// 接收端和新登录设备都显示不出「转发自」。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub forward_origin: Option<ForwardOriginSnapshot>,
 }
 
-/// 转发来源快照：**最初**作者，不是上一手转发人（对齐微信/Telegram）。
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ForwardOriginSnapshot {
-    /// 最初那条消息；源消息已被物理清除时为 `None`。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub root_message_id: Option<u64>,
-    /// 最初作者（快照，不随源消息删除而变）。
-    pub root_author_id: u64,
-    /// 展示用作者名快照。接收方未必有权读源会话，拿不到就只能显示 uid。
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub root_author_name: Option<String>,
-}
 
 // ------------------------------------------------------------------
 // Bridge to/from the legacy Value-based JSON envelope
@@ -556,7 +537,6 @@ mod tests {
                     reply_to_message_id: reply.map(str::to_string),
                     mentioned_user_ids: None,
                     message_source: None,
-                    forward_origin: None,
                 },
                 crate::message::ContentMessageType::Text,
             )
@@ -609,7 +589,6 @@ impl MessagePayloadEnvelope {
             reply_to_message_id,
             mentioned_user_ids,
             message_source: legacy.message_source.clone(),
-            forward_origin: legacy.forward_origin.clone(),
         }
     }
 
@@ -626,7 +605,6 @@ impl MessagePayloadEnvelope {
                 Some(self.mentioned_user_ids.clone())
             },
             message_source: self.message_source.clone(),
-            forward_origin: self.forward_origin.clone(),
         }
     }
 }
@@ -1064,6 +1042,5 @@ pub(crate) fn decode_payload_envelope(
         message_source: view.message_source().map(decode_source),
         // FlatBuffers schema 尚未带这个字段；实际投递给客户端的是 JSON 投影，
         // 那条路径会带上来源（见 §6.2）。FB 解码路径拿不到就是 None。
-        forward_origin: None,
     }
 }
