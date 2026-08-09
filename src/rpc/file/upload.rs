@@ -28,7 +28,9 @@ pub struct FileRequestUploadTokenRequest {
     /// 文件名
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    /// 文件大小（字节）
+    /// **最终待上传 blob** 的字节数（加密后的长度，不是明文长度）。
+    ///
+    /// 与 `sha256` 同一口径：服务端按收到的字节数入库并比对。
     pub file_size: i64,
     /// 文件MIME类型
     pub mime_type: String,
@@ -36,11 +38,18 @@ pub struct FileRequestUploadTokenRequest {
     pub file_type: String,
     /// 业务类型 (message/avatar/group_avatar等)
     pub business_type: String,
-    /// 最终内容的 SHA-256（十六进制，64 字符）。
+    /// **最终待上传 blob** 的 SHA-256（十六进制，64 字符）。
     ///
-    /// 「最终」= **压缩/转码之后、加密之前**。客户端第二次发同一份媒体时若再压一遍，
-    /// 字节会变、摘要会变，秒传就永远命中不了——所以首次处理完就要把这份字节
-    /// 连同摘要一起留住，之后任何再发都直接用它。
+    /// 「最终待上传 blob」= 压缩/转码之后、**并且已经加密之后**，真正要发给服务端的
+    /// 那串字节。去重的单位就是它：服务端不理解加密，只比对收到的字节。
+    ///
+    /// 由此推出两条客户端硬约束：
+    ///   · 预检之后**不能重新加密**——随机 CEK/nonce 会产出另一串字节，
+    ///     本来也不该命中；必须上传当初参与哈希的那个 blob。
+    ///   · 重试同样要复用同一个 blob（连同它的 CEK 和 nonce），否则每次重试
+    ///     都变成一个新的物理文件。
+    ///
+    /// 所以「同一明文加密两次」是**两个**物理文件，这是预期行为，不是缺陷。
     ///
     /// 不带这个字段 = 老客户端，照常走完整上传。
     #[serde(default, skip_serializing_if = "Option::is_none")]
