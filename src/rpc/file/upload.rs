@@ -140,6 +140,13 @@ pub struct FileGetUrlResponse {
     /// 那本来就是另一个物理文件）。老记录没有可用摘要时为空。
     #[serde(default)]
     pub sha256: Option<String>,
+    /// 服务端记录的真实文件类型：`image` / `video` / `voice` / `file` / `other`。
+    ///
+    /// 复用一份已有附件时按它申请 token。**不要靠 mime 推**：`audio/mp3` 可能是
+    /// 用户当普通文件发的一首歌而不是语音条，`video/mp4` 同理；推导表还会在
+    /// 每个客户端各存一份，迟早分叉。老服务端不下发时为空，客户端才回退推导。
+    #[serde(default)]
+    pub file_type: String,
 }
 
 /// 上传回调响应
