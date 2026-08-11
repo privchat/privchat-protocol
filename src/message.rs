@@ -173,6 +173,7 @@ mod tests {
         let metadata = LocalAttachmentMetadata {
             file_name: "clip.mp4".to_string(),
             mime_type: "video/mp4".to_string(),
+            caption: Some("周末爬山".to_string()),
             duration: Some(7),
             width: Some(1920),
             height: Some(1080),
@@ -184,5 +185,24 @@ mod tests {
         assert_eq!(encoded["mime_type"], "video/mp4");
         assert_eq!(encoded["duration"], 7);
         assert!(encoded["thumbnail_width"].is_null());
+        assert_eq!(encoded["caption"], "周末爬山");
+    }
+
+    /// 没有说明文字的附件不能在 JSON 里留一个 `caption: null`：
+    /// 接收端按「有没有这个键」判断要不要用它顶掉 `[图片]` 占位文案。
+    #[test]
+    fn a_missing_caption_is_absent_not_null() {
+        let metadata = LocalAttachmentMetadata {
+            file_name: "a.jpg".to_string(),
+            mime_type: "image/jpeg".to_string(),
+            caption: None,
+            duration: None,
+            width: None,
+            height: None,
+            thumbnail_width: None,
+            thumbnail_height: None,
+        };
+        let encoded = serde_json::to_value(metadata).expect("serialize metadata");
+        assert!(encoded.get("caption").is_none());
     }
 }
