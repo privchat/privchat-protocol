@@ -15,7 +15,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-pub mod forward;
 pub mod history;
 pub mod pin;
 /// 消息相关 RPC 类型定义
@@ -23,7 +22,6 @@ pub mod reaction;
 pub mod revoke;
 pub mod status;
 
-pub use forward::*;
 pub use history::*;
 pub use pin::*;
 pub use reaction::*;
