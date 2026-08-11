@@ -60,6 +60,12 @@ pub struct LocalMessagePayloadEnvelope {
 pub struct LocalAttachmentMetadata {
     pub file_name: String,
     pub mime_type: String,
+    /// 随附件一起发出的说明文字（「图片配一句话」）。空 = 没有。
+    ///
+    /// 它是消息内容的一部分，不是本地渲染细节：发送时它就是 wire envelope 的
+    /// `content`，接收端据此显示。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub caption: Option<String>,
     #[serde(default)]
     pub duration: Option<u32>,
     #[serde(default)]
