@@ -101,6 +101,28 @@ pub struct FileRequestUploadTokenResponse {
     /// 可选：允许上传的最大大小（bytes）
     #[serde(default)]
     pub max_size: Option<i64>,
+    /// 服务端下发的分片方案。
+    ///
+    /// 🔴 **有就分片、没有就整包，客户端不自己判断。** 阈值与网格只活在服务端一处，
+    /// 调整不用发版；关停分片 = 恒不下发。同一份方案也被签进 token，服务端按它校验
+    /// 每一个分片请求——客户端拿到的这份只是**同一件事的可读副本**，不是另一个真源。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_plan: Option<UploadPlanDto>,
+}
+
+/// 分片方案（与服务端 `UploadPlan` 同构）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UploadPlanDto {
+    /// 区间寻址网格：offset 必须是它的整数倍，非末段长度也必须整格。
+    pub base_unit: u32,
+    /// 首个探测请求的大小——先用它测一次真实吞吐，再决定后面发多大。
+    pub initial_request_size: u32,
+    /// 单次请求上限。
+    pub max_request_size: u32,
+    /// 小于等于此值不值得建会话，直接整包传。
+    pub session_threshold: u64,
+    /// 并发上限。
+    pub max_parallel_parts: u8,
 }
 
 /// 获取文件 URL 请求
