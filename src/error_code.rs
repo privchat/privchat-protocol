@@ -266,6 +266,28 @@ pub enum ErrorCode {
     UploadTokenInvalid = 20604,
     /// Upload token expired
     UploadTokenExpired = 20605,
+
+    // 断点续传（20610-20629）。
+    //
+    // 🔴 分开成独立的码，是因为客户端要靠它们**分流**：重试这一片、去查 status 对齐、
+    // 重新申请 token、还是永久失败。全压成一个 Validation 的话，客户端只能猜——
+    // 猜错的两个方向分别是「无限重试一个终局拒绝」和「放弃一个本可自愈的上传」。
+    /// 本次区间与已确认内容部分重叠：先查 status 对齐再重传
+    UploadRangeOverlap = 20610,
+    /// 分片摘要与客户端声明的不符：**只重传这一片**
+    UploadChunkChecksumMismatch = 20611,
+    /// 会话正被另一个请求占用：稍后重试
+    UploadSessionBusy = 20612,
+    /// 会话不存在或已清理：重新申请 token 从头传
+    UploadSessionGone = 20613,
+    /// 该上传已完成：拿返回的 file_id，别再传
+    UploadSessionCompleted = 20614,
+    /// 还有区间没传完：查 status 补齐后再 complete
+    UploadMissingRanges = 20615,
+    /// 整包与分片模式冲突：同一张 token 只能走一条路
+    UploadModeConflict = 20616,
+    /// 分片未按服务端下发的网格对齐，或超过单次上限
+    UploadChunkNotAligned = 20617,
     /// Storage quota exceeded
     StorageQuotaExceeded = 20606,
 
@@ -429,6 +451,14 @@ impl ErrorCode {
             Self::FileTypeNotAllowed => "File type not allowed",
             Self::UploadTokenInvalid => "Upload token invalid",
             Self::UploadTokenExpired => "Upload token expired",
+            Self::UploadRangeOverlap => "Chunk range overlaps confirmed data",
+            Self::UploadChunkChecksumMismatch => "Chunk checksum mismatch",
+            Self::UploadSessionBusy => "Upload session is busy",
+            Self::UploadSessionGone => "Upload session no longer exists",
+            Self::UploadSessionCompleted => "Upload already completed",
+            Self::UploadMissingRanges => "Upload has missing ranges",
+            Self::UploadModeConflict => "Upload mode conflict",
+            Self::UploadChunkNotAligned => "Chunk not aligned to the server grid",
             Self::StorageQuotaExceeded => "Storage quota exceeded",
             Self::QRCodeNotFound => "QR code not found",
             Self::QRCodeExpired => "QR code expired",
@@ -551,6 +581,14 @@ impl ErrorCode {
             20500 => Some(Self::ChannelNotFound),
             20501 => Some(Self::ChannelDeleted),
             20502 => Some(Self::ChannelMuted),
+            20610 => Some(Self::UploadRangeOverlap),
+            20611 => Some(Self::UploadChunkChecksumMismatch),
+            20612 => Some(Self::UploadSessionBusy),
+            20613 => Some(Self::UploadSessionGone),
+            20614 => Some(Self::UploadSessionCompleted),
+            20615 => Some(Self::UploadMissingRanges),
+            20616 => Some(Self::UploadModeConflict),
+            20617 => Some(Self::UploadChunkNotAligned),
             20600 => Some(Self::FileNotFound),
             20601 => Some(Self::FileUploadFailed),
             20602 => Some(Self::FileTooLarge),
