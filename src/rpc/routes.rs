@@ -306,6 +306,9 @@ pub mod file {
     /// 请求上传令牌
     pub const REQUEST_UPLOAD_TOKEN: &str = "file/request_upload_token";
 
+    /// 请求**分片**上传令牌（RESUMABLE_UPLOAD_SPEC §2）。与整包接口彼此独立。
+    pub const REQUEST_CHUNKED_UPLOAD_TOKEN: &str = "file/request_chunked_upload_token";
+
     /// 上传回调
     pub const UPLOAD_CALLBACK: &str = "file/upload_callback";
 

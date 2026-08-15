@@ -125,6 +125,58 @@ pub struct UploadPlanDto {
     pub max_parallel_parts: u8,
 }
 
+/// 请求**分片**上传令牌（RESUMABLE_UPLOAD_SPEC §2）。
+///
+/// RPC 路由: `file/request_chunked_upload_token`
+///
+/// 🔴 与 `file/request_upload_token` 是两个接口，不靠响应里"有没有某个字段"暗示走哪条路：
+/// 调了分片接口就是要分片，调不通直接报错，不会静默退化成整包。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileRequestChunkedUploadTokenRequest {
+    /// 文件类型 (image/video/audio/file/other)
+    pub file_type: String,
+    /// 业务类型 (message/avatar/...)。整包路径里它来自 token，这里同样在申请时冻结。
+    pub business_type: String,
+    /// **封装后**字节数。
+    pub file_size: i64,
+    /// **封装后** SHA-256（十六进制 64 字符）。分片路径**必带**：complete 靠它核验。
+    pub file_hash: String,
+    pub mime_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub filename: Option<String>,
+    #[serde(default)]
+    pub transform_version: i32,
+    /// `true` = 跳过秒传预检直接建会话。只在「claim 失败且判定可退回」时置一次，
+    /// 否则预检命中→claim 失败→重新申请→又命中，永远进不了实体上传。
+    #[serde(default)]
+    pub force_upload: bool,
+}
+
+/// 分片上传令牌响应。
+///
+/// 两种形态互斥：`already_exists=true` 时只有 `claim_token`（拿去调
+/// `file/claim_existing`），否则只有 `upload_token` / `upload_url` / `base_unit` / `expires_at`。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FileRequestChunkedUploadTokenResponse {
+    #[serde(default)]
+    pub already_exists: bool,
+    /// 秒传命中时的取用凭据。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub claim_token: Option<String>,
+    /// 分片会话凭据 `{upload_id}.{secret}`；chunk/status/complete/abort 只认它。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_token: Option<String>,
+    /// 分片端点的基址（`.../files`）。客户端拼 `/chunk`、`/status`、`/complete`、`/abort`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub upload_url: Option<String>,
+    /// 寻址网格（字节）：非末段 offset 与 length 必须对齐它。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub base_unit: Option<u32>,
+    /// token 过期时间（Unix 秒）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+}
+
 /// 获取文件 URL 请求
 ///
 /// RPC路由: `file/get_url`
