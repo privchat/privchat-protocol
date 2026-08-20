@@ -150,12 +150,21 @@ pub struct FileRequestChunkedUploadTokenRequest {
     /// 否则预检命中→claim 失败→重新申请→又命中，永远进不了实体上传。
     #[serde(default)]
     pub force_upload: bool,
+    /// 可选：客户端支持的上传数据面（RESUMABLE_UPLOAD_SPEC §8.2，纯加法）。
+    /// 取值如 `["proxy_offset_v1", "s3_multipart_v1"]`。🔴 旧客户端不带该字段 →
+    /// 服务端行为与响应逐字节不变；不带或不含 `s3_multipart_v1` 时恒走现有
+    /// `proxy_offset_v1`。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub supported_upload_transports: Option<Vec<String>>,
 }
 
 /// 分片上传令牌响应。
 ///
 /// 两种形态互斥：`already_exists=true` 时只有 `claim_token`（拿去调
-/// `file/claim_existing`），否则只有 `upload_token` / `upload_url` / `base_unit` / `expires_at`。
+/// `file/claim_existing`），否则只有 `upload_token` / `upload_url` / `base_unit` /
+/// `expires_at`。协商字段（`transport` / `part_size` / `total_parts`，RESUMABLE §8.2）
+/// 只在客户端声明了 `supported_upload_transports` 时才可能出现；旧客户端的响应
+/// 逐字节不变。
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct FileRequestChunkedUploadTokenResponse {
     #[serde(default)]
@@ -175,6 +184,17 @@ pub struct FileRequestChunkedUploadTokenResponse {
     /// token 过期时间（Unix 秒）。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<i64>,
+    /// 协商结果：本次会话的数据面（RESUMABLE_UPLOAD_SPEC §8.2）。当前只有
+    /// `proxy_offset_v1`；选为 `s3_multipart_v1` 时另带 `part_size` / `total_parts`。
+    /// 仅当客户端声明了 `supported_upload_transports` 时下发。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transport: Option<String>,
+    /// 仅 `s3_multipart_v1`：固定分片大小（字节）。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub part_size: Option<u64>,
+    /// 仅 `s3_multipart_v1`：总分片数。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_parts: Option<u32>,
 }
 
 /// 获取文件 URL 请求
@@ -221,6 +241,63 @@ pub struct FileGetUrlResponse {
     /// 每个客户端各存一份，迟早分叉。老服务端不下发时为空，客户端才回退推导。
     #[serde(default)]
     pub file_type: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 🔴 旧客户端兼容门禁（RESUMABLE_UPLOAD_SPEC §8.2）：旧请求 JSON 不带
+    /// `supported_upload_transports` 必须能照常反序列化；旧响应的序列化结果与
+    /// 新增字段前的 wire shape **逐字节一致**（fixture 直接断言完整字符串）。
+    #[test]
+    fn legacy_chunked_token_wire_shape_is_unchanged() {
+        let legacy_request = serde_json::json!({
+            "file_type": "image",
+            "business_type": "message",
+            "file_size": 1048576,
+            "file_hash": "ab".repeat(32),
+            "mime_type": "image/jpeg"
+        });
+        let req: FileRequestChunkedUploadTokenRequest =
+            serde_json::from_value(legacy_request).unwrap();
+        assert!(req.supported_upload_transports.is_none());
+
+        // 未命中秒传的旧响应：逐字节 fixture。
+        let response = FileRequestChunkedUploadTokenResponse {
+            already_exists: false,
+            upload_token: Some("u.s".to_string()),
+            upload_url: Some("http://x/files".to_string()),
+            base_unit: Some(65536),
+            expires_at: Some(100),
+            ..Default::default()
+        };
+        assert_eq!(
+            serde_json::to_string(&response).unwrap(),
+            r#"{"already_exists":false,"upload_token":"u.s","upload_url":"http://x/files","base_unit":65536,"expires_at":100}"#
+        );
+
+        // 秒传命中的旧响应：逐字节 fixture。
+        let claim = FileRequestChunkedUploadTokenResponse {
+            already_exists: true,
+            claim_token: Some("claim-1".to_string()),
+            ..Default::default()
+        };
+        assert_eq!(
+            serde_json::to_string(&claim).unwrap(),
+            r#"{"already_exists":true,"claim_token":"claim-1"}"#
+        );
+
+        // 新客户端声明能力 → 响应才带 transport；part_size/total_parts 仍不出现。
+        let new_response = FileRequestChunkedUploadTokenResponse {
+            transport: Some("proxy_offset_v1".to_string()),
+            ..response
+        };
+        assert_eq!(
+            serde_json::to_string(&new_response).unwrap(),
+            r#"{"already_exists":false,"upload_token":"u.s","upload_url":"http://x/files","base_unit":65536,"expires_at":100,"transport":"proxy_offset_v1"}"#
+        );
+    }
 }
 
 /// 上传回调响应
