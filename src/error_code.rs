@@ -288,6 +288,9 @@ pub enum ErrorCode {
     UploadModeConflict = 20616,
     /// 分片未按服务端下发的网格对齐，或超过单次上限
     UploadChunkNotAligned = 20617,
+    /// 完成后校验失败（仅 S3 直传）：废弃 token 与会话、从零重新申请，
+    /// 禁止沿原会话重传片（RESUMABLE_UPLOAD_SPEC §8）
+    UploadRestartRequired = 20618,
     /// Storage quota exceeded
     StorageQuotaExceeded = 20606,
 
@@ -459,6 +462,7 @@ impl ErrorCode {
             Self::UploadMissingRanges => "Upload has missing ranges",
             Self::UploadModeConflict => "Upload mode conflict",
             Self::UploadChunkNotAligned => "Chunk not aligned to the server grid",
+            Self::UploadRestartRequired => "Post-complete verification failed; restart the upload",
             Self::StorageQuotaExceeded => "Storage quota exceeded",
             Self::QRCodeNotFound => "QR code not found",
             Self::QRCodeExpired => "QR code expired",
@@ -589,6 +593,7 @@ impl ErrorCode {
             20615 => Some(Self::UploadMissingRanges),
             20616 => Some(Self::UploadModeConflict),
             20617 => Some(Self::UploadChunkNotAligned),
+            20618 => Some(Self::UploadRestartRequired),
             20600 => Some(Self::FileNotFound),
             20601 => Some(Self::FileUploadFailed),
             20602 => Some(Self::FileTooLarge),
