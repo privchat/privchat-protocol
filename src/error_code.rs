@@ -332,6 +332,24 @@ pub enum ErrorCode {
     /// Bot follow rate limit exceeded (reserved; v1 not enforced)
     BotFollowRateLimited = 20923,
 
+    // Channel Transfer (21500-21519) — spec 02-server/CHANNEL_TRANSFER_SPEC §15.2
+    //
+    // Relocated from 20900-20904: those values collide with Sync Recovery
+    // (20900-20902), which privchat-sdk's resume state machine branches on.
+    // The old numbers are NOT accepted as transfer aliases — they remain
+    // valid Sync codes, so double-mapping would keep the ambiguity alive.
+    // Migration table: spec 01-global/ERROR_CODE_SPEC §3.4.12.
+    /// Target session is online but has not subscribed the channel
+    ChannelNotSubscribed = 21500,
+    /// `channel_id` has no `privchat_business_channel` binding (or disabled)
+    ChannelNotBound = 21501,
+    /// `service_id` not registered, or route prefix mismatches service name
+    TransferServiceNotFound = 21502,
+    /// Service `status = 0`
+    TransferServiceDisabled = 21503,
+    /// External `callback_url` invocation failed (non-timeout)
+    TransferCallbackFailed = 21504,
+
     // System User (21000-21099) — spec 07-application/SYSTEM_USER_SPEC §4
     /// System User (`user_type=1`) cannot be added to group; rejected by
     /// `group/create` initial_members, `group/member/add`, and QR-join fallback
@@ -480,6 +498,13 @@ impl ErrorCode {
             Self::BotDisabled => "Bot is disabled",
             Self::BotFollowRateLimited => "Bot follow rate limited",
             Self::SystemUserNotGroupInvitable => "System user cannot be added to group",
+
+            // Channel Transfer (21500-21519)
+            Self::ChannelNotSubscribed => "Target is online but not subscribed to the channel",
+            Self::ChannelNotBound => "Channel is not bound to any business service",
+            Self::TransferServiceNotFound => "Transfer service not found",
+            Self::TransferServiceDisabled => "Transfer service is disabled",
+            Self::TransferCallbackFailed => "Transfer callback invocation failed",
         }
     }
 
@@ -617,6 +642,11 @@ impl ErrorCode {
             20922 => Some(Self::BotDisabled),
             20923 => Some(Self::BotFollowRateLimited),
             21001 => Some(Self::SystemUserNotGroupInvitable),
+            21500 => Some(Self::ChannelNotSubscribed),
+            21501 => Some(Self::ChannelNotBound),
+            21502 => Some(Self::TransferServiceNotFound),
+            21503 => Some(Self::TransferServiceDisabled),
+            21504 => Some(Self::TransferCallbackFailed),
 
             _ => None,
         }
@@ -748,5 +778,43 @@ mod tests {
 
         let err = ErrorCode::GroupNotFound;
         assert_eq!(err.to_string(), "[20300] Group not found");
+    }
+
+    /// Regression gate: the sync recovery range must never be reinterpreted
+    /// as channel transfer. privchat-sdk's resume state machine branches on
+    /// 20900/20901/20902, so a transfer meaning here would make a client
+    /// rebuild its whole store on a delivery error.
+    #[test]
+    fn sync_recovery_range_is_not_transfer() {
+        assert_eq!(ErrorCode::from_code(20900), Some(ErrorCode::SyncChannelResyncRequired));
+        assert_eq!(ErrorCode::from_code(20901), Some(ErrorCode::SyncEntityResyncRequired));
+        assert_eq!(ErrorCode::from_code(20902), Some(ErrorCode::SyncFullRebuildRequired));
+    }
+
+    /// Transfer codes live in their own range and carry transfer meaning.
+    #[test]
+    fn transfer_codes_are_relocated() {
+        assert_eq!(ErrorCode::ChannelNotSubscribed.code(), 21500);
+        assert_eq!(ErrorCode::ChannelNotBound.code(), 21501);
+        assert_eq!(ErrorCode::TransferServiceNotFound.code(), 21502);
+        assert_eq!(ErrorCode::TransferServiceDisabled.code(), 21503);
+        assert_eq!(ErrorCode::TransferCallbackFailed.code(), 21504);
+    }
+
+    /// No two variants may share a numeric code.
+    #[test]
+    fn error_codes_have_no_duplicates() {
+        let all = [
+            ErrorCode::SyncChannelResyncRequired, ErrorCode::SyncEntityResyncRequired,
+            ErrorCode::SyncFullRebuildRequired, ErrorCode::BotNotFound,
+            ErrorCode::NotABot, ErrorCode::BotDisabled, ErrorCode::BotFollowRateLimited,
+            ErrorCode::ChannelNotSubscribed, ErrorCode::ChannelNotBound,
+            ErrorCode::TransferServiceNotFound, ErrorCode::TransferServiceDisabled,
+            ErrorCode::TransferCallbackFailed, ErrorCode::SystemUserNotGroupInvitable,
+        ];
+        let mut seen = std::collections::HashSet::new();
+        for c in all {
+            assert!(seen.insert(c.code()), "duplicate error code: {}", c.code());
+        }
     }
 }

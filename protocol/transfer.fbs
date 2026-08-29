@@ -39,7 +39,7 @@ table TransferResponse {
   /// Same as the corresponding TransferRequest.channel_id.
   channel_id : ulong;
   /// Application-defined status code (0 = success by convention).
-  /// See ERROR_CODE_SPEC for shared codes; `20900-20909` are the
+  /// See ERROR_CODE_SPEC for shared codes; `21500-21519` are the
   /// Channel Transfer segment.
   code       : int;
   message    : string;

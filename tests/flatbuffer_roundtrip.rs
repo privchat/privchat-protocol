@@ -324,11 +324,11 @@ fn transfer_response_roundtrip() {
     assert_eq!(got.data, None); // empty [ubyte] decodes back to None
 
     let resp_err =
-        TransferResponse::error(req_id.clone(), 2817, 20902, "service not found".to_string());
+        TransferResponse::error(req_id.clone(), 2817, 21502, "service not found".to_string());
     let got = roundtrip(&resp_err);
     assert_eq!(got.request_id, req_id);
     assert_eq!(got.channel_id, 2817);
-    assert_eq!(got.code, 20902);
+    assert_eq!(got.code, 21502);
     assert_eq!(got.message, "service not found");
     assert_eq!(got.data, None);
 }
