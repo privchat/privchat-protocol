@@ -1,0 +1,797 @@
+# PrivChat 错误码单一权威源(machine-readable registry)
+#
+# 为什么需要它:错误码此前由 Rust enum、Rust CODE_* 常量、Kotlin const val、
+# TypeScript case 分支各自手写,没有交叉校验 —— 结果 20900/20902 与
+# 20920-20923 各自出现了 2~4 套语义(见 ERROR_CODE_SPEC §3.4.12)。
+#
+# 规则:
+#   1. 新增错误码**必须**先登记在此;
+#   2. 各语言常量由此生成或与此校验,**不得**手写数字字面量;
+#   3. 段位一经分配不得跨域借用 —— "临时借用别人的段位"是历次碰撞的根因。
+
+[[segment]]
+range = "20900-20919"
+domain = "sync-recovery"
+owner = "privchat-protocol"
+note = "privchat-sdk 的 resume 状态机按码分支,永久占用,不可迁移"
+
+[[segment]]
+range = "20920-20929"
+domain = "bot-follow"
+owner = "privchat-protocol"
+note = "protocol 枚举已定义 BotNotFound/NotABot/BotDisabled/BotFollowRateLimited"
+
+[[segment]]
+range = "21400-21499"
+domain = "mmo-battle"
+owner = "module-mmorpg"
+note = "见 MMO_BATTLE_PROTOCOL_SPEC §9"
+
+[[segment]]
+range = "21500-21519"
+domain = "channel-transfer"
+owner = "privchat-protocol"
+note = "自 20900-20904 迁入,原值与 sync-recovery 碰撞"
+
+[[segment]]
+range = "21600-21699"
+domain = "mmo-scene"
+owner = "module-mmorpg"
+note = "见 MMO_WORLD_SCENE_SPEC"
+
+[[segment]]
+range = "21700-21719"
+domain = "server-event-dispatch"
+owner = "neton-application-module-privchat"
+note = "自 20920-20922 迁入,原值与 bot-follow 碰撞"
+
+[[segment]]
+range = "21800-21819"
+domain = "bot-lifecycle"
+owner = "neton-application-module-privchat"
+note = "自 20920-20924 迁入;原注释自承'借用 transfer 业务段位'"
+
+[[segment]]
+range = "21900-21919"
+domain = "game-transfer"
+owner = "privchat-application-module-game"
+note = "自 20403/20404(好友域)迁入,原值属 UserInBlacklist/FriendRequestExpired"
+
+[[segment]]
+range = "0-20899"
+domain = "legacy-protocol"
+owner = "privchat-protocol"
+note = "既有通用码,由 ErrorCode 枚举定义"
+
+[[segment]]
+range = "21000-21099"
+domain = "application-existing"
+owner = "neton-application-module-privchat"
+note = "System User 等既有 application 码"
+
+# --- 已分配的具体码 ---
+
+[[code]]
+code = 20900
+name = "SyncChannelResyncRequired"
+domain = "sync-recovery"
+
+[[code]]
+code = 20901
+name = "SyncEntityResyncRequired"
+domain = "sync-recovery"
+
+[[code]]
+code = 20902
+name = "SyncFullRebuildRequired"
+domain = "sync-recovery"
+
+[[code]]
+code = 20920
+name = "BotNotFound"
+domain = "bot-follow"
+
+[[code]]
+code = 20921
+name = "NotABot"
+domain = "bot-follow"
+
+[[code]]
+code = 20922
+name = "BotDisabled"
+domain = "bot-follow"
+
+[[code]]
+code = 20923
+name = "BotFollowRateLimited"
+domain = "bot-follow"
+
+[[code]]
+code = 21500
+name = "ChannelNotSubscribed"
+domain = "channel-transfer"
+
+[[code]]
+code = 21501
+name = "ChannelNotBound"
+domain = "channel-transfer"
+
+[[code]]
+code = 21502
+name = "TransferServiceNotFound"
+domain = "channel-transfer"
+
+[[code]]
+code = 21503
+name = "TransferServiceDisabled"
+domain = "channel-transfer"
+
+[[code]]
+code = 21504
+name = "TransferCallbackFailed"
+domain = "channel-transfer"
+
+[[code]]
+code = 21700
+name = "ServerEventHandlerNotRegistered"
+domain = "server-event-dispatch"
+
+[[code]]
+code = 21701
+name = "ServerEventInvalidPayload"
+domain = "server-event-dispatch"
+
+[[code]]
+code = 21702
+name = "ServerEventHandlerFailed"
+domain = "server-event-dispatch"
+
+[[code]]
+code = 21800
+name = "BotLifecycleUnsupported"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 21801
+name = "BotLifecyclePayloadInvalid"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 21802
+name = "BotProfileNotFound"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 21803
+name = "BotProfileDisabled"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 21804
+name = "BotBindingWriteFailed"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 21900
+name = "GameChannelMismatch"
+domain = "game-transfer"
+
+[[code]]
+code = 21901
+name = "GameUnknownRoute"
+domain = "game-transfer"
+
+[[code]]
+code = 0
+name = "Ok"
+domain = "legacy-protocol"
+
+[[code]]
+code = 1
+name = "SystemError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 2
+name = "SystemBusy"
+domain = "legacy-protocol"
+
+[[code]]
+code = 3
+name = "ServiceUnavailable"
+domain = "legacy-protocol"
+
+[[code]]
+code = 4
+name = "InternalError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 5
+name = "Timeout"
+domain = "legacy-protocol"
+
+[[code]]
+code = 6
+name = "Maintenance"
+domain = "legacy-protocol"
+
+[[code]]
+code = 7
+name = "DatabaseError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 8
+name = "CacheError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 9
+name = "NetworkError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 100
+name = "ProtocolError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 101
+name = "UnsupportedProtocol"
+domain = "legacy-protocol"
+
+[[code]]
+code = 102
+name = "InvalidPacket"
+domain = "legacy-protocol"
+
+[[code]]
+code = 103
+name = "PacketTooLarge"
+domain = "legacy-protocol"
+
+[[code]]
+code = 104
+name = "EncodingError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 105
+name = "DecodingError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 200
+name = "VersionError"
+domain = "legacy-protocol"
+
+[[code]]
+code = 201
+name = "ClientVersionTooOld"
+domain = "legacy-protocol"
+
+[[code]]
+code = 202
+name = "ClientVersionTooNew"
+domain = "legacy-protocol"
+
+[[code]]
+code = 203
+name = "IncompatibleVersion"
+domain = "legacy-protocol"
+
+[[code]]
+code = 204
+name = "DeprecatedApi"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10000
+name = "AuthRequired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10001
+name = "InvalidToken"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10002
+name = "TokenExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10003
+name = "TokenRevoked"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10004
+name = "PermissionDenied"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10005
+name = "SessionExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10006
+name = "SessionNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10007
+name = "UserBanned"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10008
+name = "IpNotAllowed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10009
+name = "RefreshTokenExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10010
+name = "RefreshTokenRevoked"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10100
+name = "InvalidParams"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10101
+name = "MissingRequiredParam"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10102
+name = "InvalidParamType"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10103
+name = "ParamOutOfRange"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10104
+name = "InvalidFormat"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10105
+name = "InvalidJson"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10106
+name = "PayloadTooLarge"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10200
+name = "OperationNotAllowed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10201
+name = "ResourceNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10202
+name = "ResourceAlreadyExists"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10203
+name = "ResourceDeleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10204
+name = "DuplicateOperation"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10205
+name = "OperationConflict"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10206
+name = "AttachmentSourceMissing"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10207
+name = "SessionNotReady"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10300
+name = "RateLimitExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10301
+name = "DailyQuotaExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10302
+name = "MonthlyQuotaExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 10303
+name = "ConcurrentLimitExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20000
+name = "MessageNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20001
+name = "MessageDeleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20002
+name = "MessageRevoked"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20003
+name = "MessageSendFailed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20004
+name = "MessageTooLarge"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20005
+name = "MessageTypeInvalid"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20006
+name = "MessageContentInvalid"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20007
+name = "MessageCannotRevoke"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20008
+name = "MessageAlreadyRead"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20009
+name = "SendMessageTooFast"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20100
+name = "OfflineMessageFull"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20101
+name = "OfflineMessageExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20200
+name = "UserNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20201
+name = "UserAlreadyExists"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20202
+name = "UserDeleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20203
+name = "UserBannedAlt"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20204
+name = "UserNotActive"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20205
+name = "NicknameInvalid"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20206
+name = "AvatarInvalid"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20300
+name = "GroupNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20301
+name = "GroupDeleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20302
+name = "GroupFull"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20303
+name = "NotGroupMember"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20304
+name = "NotGroupAdmin"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20305
+name = "NotGroupOwner"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20306
+name = "GroupMuted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20307
+name = "MemberMuted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20308
+name = "MemberAlreadyInGroup"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20309
+name = "CannotRemoveOwner"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20310
+name = "JoinApprovalRequired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20311
+name = "GroupAddFriendDisabled"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20312
+name = "GroupAddFriendPersonalDisabled"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20313
+name = "ProfileViewGrantExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20400
+name = "FriendNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20401
+name = "AlreadyFriends"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20402
+name = "BlockedByUser"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20403
+name = "UserInBlacklist"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20404
+name = "FriendRequestExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20500
+name = "ChannelNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20501
+name = "ChannelDeleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20502
+name = "ChannelMuted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20600
+name = "FileNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20601
+name = "FileUploadFailed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20602
+name = "FileTooLarge"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20603
+name = "FileTypeNotAllowed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20604
+name = "UploadTokenInvalid"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20605
+name = "UploadTokenExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20606
+name = "StorageQuotaExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20610
+name = "UploadRangeOverlap"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20611
+name = "UploadChunkChecksumMismatch"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20612
+name = "UploadSessionBusy"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20613
+name = "UploadSessionGone"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20614
+name = "UploadSessionCompleted"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20615
+name = "UploadMissingRanges"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20616
+name = "UploadModeConflict"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20617
+name = "UploadChunkNotAligned"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20618
+name = "UploadRestartRequired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20700
+name = "QRCodeNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20701
+name = "QRCodeExpired"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20702
+name = "QRCodeUsed"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20703
+name = "QRCodeRevoked"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20704
+name = "QRCodeLimitExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20800
+name = "DeviceNotFound"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20801
+name = "DeviceLimitExceeded"
+domain = "legacy-protocol"
+
+[[code]]
+code = 20802
+name = "DeviceNotVerified"
+domain = "legacy-protocol"
+
+[[code]]
+code = 21001
+name = "SystemUserNotGroupInvitable"
+domain = "legacy-protocol"
+
+[[code]]
+code = 21010
+name = "SystemUserNotFound"
+domain = "application-existing"
+
+[[code]]
+code = 21011
+name = "SystemUserDisabled"
+domain = "application-existing"
+
+[[code]]
+code = 21012
+name = "NoConsumerForService"
+domain = "application-existing"
+
+[[code]]
+code = 21013
+name = "ConsumerRejected"
+domain = "application-existing"
+
+[[code]]
+code = 21014
+name = "ConsumerThrew"
+domain = "application-existing"
+
+[[code]]
+code = 21015
+name = "PayloadDecodeFailed"
+domain = "application-existing"
