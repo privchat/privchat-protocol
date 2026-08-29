@@ -69,6 +69,12 @@ domain = "application-existing"
 owner = "neton-application-module-privchat"
 note = "System User 等既有 application 码"
 
+[[segment]]
+range = "30000-30999"
+domain = "game-domain"
+owner = "privchat-application-module-game"
+note = "棋牌玩法自有错误码(GameErrorCode)"
+
 # --- 已分配的具体码 ---
 
 [[code]]
@@ -764,7 +770,7 @@ domain = "legacy-protocol"
 [[code]]
 code = 21001
 name = "SystemUserNotGroupInvitable"
-domain = "legacy-protocol"
+domain = "application-existing"
 
 [[code]]
 code = 21010
@@ -795,3 +801,28 @@ domain = "application-existing"
 code = 21015
 name = "PayloadDecodeFailed"
 domain = "application-existing"
+
+[[code]]
+code = 21805
+name = "BotBindingMissing"
+domain = "bot-lifecycle"
+
+[[code]]
+code = 30001
+name = "RoomNotFound"
+domain = "game-domain"
+
+[[code]]
+code = 30002
+name = "RoomClosed"
+domain = "game-domain"
+
+[[code]]
+code = 30003
+name = "RoomUnavailable"
+domain = "game-domain"
+
+[[code]]
+code = 30004
+name = "RoomPrivate"
+domain = "game-domain"
