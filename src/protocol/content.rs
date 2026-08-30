@@ -227,7 +227,6 @@ pub struct MessagePayloadEnvelope {
     pub message_source: Option<MessageSource>,
 }
 
-
 // ------------------------------------------------------------------
 // Bridge to/from the legacy Value-based JSON envelope
 // ------------------------------------------------------------------
@@ -321,7 +320,11 @@ impl MessageMetadata {
     /// 与 [`Self::attachment_refs`] 的区别：那个按「引用」计数（同一文件两个角色 = 两条），
     /// 这个按「文件」计数（同一文件 = 一个）。绑定守卫要的是后者。
     pub fn unique_file_ids(&self) -> Vec<u64> {
-        let mut ids: Vec<u64> = self.attachment_refs().into_iter().map(|r| r.file_id).collect();
+        let mut ids: Vec<u64> = self
+            .attachment_refs()
+            .into_iter()
+            .map(|r| r.file_id)
+            .collect();
         ids.sort_unstable();
         ids.dedup();
         ids
@@ -471,8 +474,14 @@ mod tests {
             ContentMessageType::Image,
             &serde_json::json!({ "file_id": "300", "thumbnail_file_id": "400" }),
         );
-        assert_eq!(from_num.as_ref().map(|m| m.unique_file_ids()), Some(vec![300, 400]));
-        assert_eq!(from_str.as_ref().map(|m| m.unique_file_ids()), Some(vec![300, 400]));
+        assert_eq!(
+            from_num.as_ref().map(|m| m.unique_file_ids()),
+            Some(vec![300, 400])
+        );
+        assert_eq!(
+            from_str.as_ref().map(|m| m.unique_file_ids()),
+            Some(vec![300, 400])
+        );
         assert_eq!(
             from_num.map(|m| m.attachment_refs()),
             from_str.map(|m| m.attachment_refs()),

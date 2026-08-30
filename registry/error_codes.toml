@@ -826,3 +826,53 @@ domain = "game-domain"
 code = 30004
 name = "RoomPrivate"
 domain = "game-domain"
+
+[[code]]
+code = 21600
+name = "SceneNotFound"
+domain = "mmo-scene"
+
+[[code]]
+code = 21601
+name = "SceneSessionInvalid"
+domain = "mmo-scene"
+
+[[code]]
+code = 21602
+name = "SceneGenerationMismatch"
+domain = "mmo-scene"
+
+[[code]]
+code = 21603
+name = "SceneMoveTargetUnreachable"
+domain = "mmo-scene"
+
+[[code]]
+code = 21604
+name = "SceneMoveNotAllowed"
+domain = "mmo-scene"
+
+[[code]]
+code = 21605
+name = "SceneMovementSeqStale"
+domain = "mmo-scene"
+
+[[code]]
+code = 21606
+name = "SceneIdempotencyKeyReuse"
+domain = "mmo-scene"
+
+[[code]]
+code = 21607
+name = "SceneEntityNotControllable"
+domain = "mmo-scene"
+
+[[code]]
+code = 21608
+name = "ScenePayloadTooLarge"
+domain = "mmo-scene"
+
+[[code]]
+code = 21609
+name = "SceneProtocolVersionUnsupported"
+domain = "mmo-scene"

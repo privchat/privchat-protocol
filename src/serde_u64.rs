@@ -41,7 +41,9 @@ pub fn deserialize<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u64, D:
     match NumberOrString::deserialize(deserializer)? {
         NumberOrString::Number(value) => Ok(value),
         NumberOrString::Text(text) => text.trim().parse::<u64>().map_err(|_| {
-            serde::de::Error::custom(format!("expected a u64 encoded as a decimal string: {text}"))
+            serde::de::Error::custom(format!(
+                "expected a u64 encoded as a decimal string: {text}"
+            ))
         }),
     }
 }

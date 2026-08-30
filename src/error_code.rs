@@ -786,9 +786,18 @@ mod tests {
     /// rebuild its whole store on a delivery error.
     #[test]
     fn sync_recovery_range_is_not_transfer() {
-        assert_eq!(ErrorCode::from_code(20900), Some(ErrorCode::SyncChannelResyncRequired));
-        assert_eq!(ErrorCode::from_code(20901), Some(ErrorCode::SyncEntityResyncRequired));
-        assert_eq!(ErrorCode::from_code(20902), Some(ErrorCode::SyncFullRebuildRequired));
+        assert_eq!(
+            ErrorCode::from_code(20900),
+            Some(ErrorCode::SyncChannelResyncRequired)
+        );
+        assert_eq!(
+            ErrorCode::from_code(20901),
+            Some(ErrorCode::SyncEntityResyncRequired)
+        );
+        assert_eq!(
+            ErrorCode::from_code(20902),
+            Some(ErrorCode::SyncFullRebuildRequired)
+        );
     }
 
     /// Transfer codes live in their own range and carry transfer meaning.
@@ -805,12 +814,19 @@ mod tests {
     #[test]
     fn error_codes_have_no_duplicates() {
         let all = [
-            ErrorCode::SyncChannelResyncRequired, ErrorCode::SyncEntityResyncRequired,
-            ErrorCode::SyncFullRebuildRequired, ErrorCode::BotNotFound,
-            ErrorCode::NotABot, ErrorCode::BotDisabled, ErrorCode::BotFollowRateLimited,
-            ErrorCode::ChannelNotSubscribed, ErrorCode::ChannelNotBound,
-            ErrorCode::TransferServiceNotFound, ErrorCode::TransferServiceDisabled,
-            ErrorCode::TransferCallbackFailed, ErrorCode::SystemUserNotGroupInvitable,
+            ErrorCode::SyncChannelResyncRequired,
+            ErrorCode::SyncEntityResyncRequired,
+            ErrorCode::SyncFullRebuildRequired,
+            ErrorCode::BotNotFound,
+            ErrorCode::NotABot,
+            ErrorCode::BotDisabled,
+            ErrorCode::BotFollowRateLimited,
+            ErrorCode::ChannelNotSubscribed,
+            ErrorCode::ChannelNotBound,
+            ErrorCode::TransferServiceNotFound,
+            ErrorCode::TransferServiceDisabled,
+            ErrorCode::TransferCallbackFailed,
+            ErrorCode::SystemUserNotGroupInvitable,
         ];
         let mut seen = std::collections::HashSet::new();
         for c in all {

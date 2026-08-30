@@ -102,10 +102,10 @@ pub mod error_code;
 pub mod inbox_event;
 pub mod message;
 pub mod notification;
-pub mod serde_u64;
 pub mod presence;
 pub mod protocol;
 pub mod rpc;
+pub mod serde_u64;
 pub mod version;
 
 pub use codec::{decode_message, encode_message, FlatBufferMessage};
