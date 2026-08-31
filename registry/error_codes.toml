@@ -1,18 +1,11 @@
-# PrivChat 错误码注册表
+# privchat-protocol 错误码:**只有 IM / 传输核心错误**。
 #
-# **只登记核心通信层的错误码**。application 业务模块的错误码属于各自的
-# 业务域,**不进本表** —— 核心层不需要认识 `SceneNotFound` 这类玩法概念,
-# `TransferResponse.code` 本来就是整数,SDK 与客户端原样透传未知业务码即可。
+# 这些码用于在 IM 层面排查通信问题(鉴权、频道、同步、投递)。
+# application 类项目的业务问题**不需要 IM 来定义错误码** —— 它们由各业务
+# 模块自持,`TransferResponse.code` 本来就是整数,SDK 与客户端原样透传。
 #
-# 但业务段位**必须在此保留**:否则核心层可能把一个已被业务占用的号段
-# 再分配一次,重演 20900(Sync ↔ Transfer)与 20920(Bot ↔ ServerEvent ↔
-# BotLifecycle)那两组真实碰撞。
-#
-# 规则:
-#   1. 核心码:在本表登记完整定义;
-#   2. 业务段位:在本表**只登记保留**(range + owner),码定义由 owner 自持;
-#   3. 任何模块都不得使用未保留的段位;
-#   4. 各业务模块应在自己仓内维护同构的 registry,并跑同一个门禁脚本。
+# **全局段位分配不在本表**,在 privchat-docs/governance/error-codes/segments.toml
+# —— 核心通信层不该承担全组织的段位治理,那会让它跟着每个业务模块演进。
 
 [[segment]]
 range = "20900-20919"
@@ -38,65 +31,7 @@ domain = "channel-transfer"
 owner = "privchat-protocol"
 note = "仅 ChannelNotSubscribed:由 privchat-server 的投递路由产生,属核心"
 
-[[segment]]
-range = "21501-21519"
-domain = "transfer-dispatch"
-owner = "neton-application-module-privchat"
-reserved_only = true
-note = "application 侧 dispatcher 的业务码(ChannelNotBound 等),码定义由 owner 自持"
-
-# --- 业务段位保留(码定义由 owner 自持,不在本表)---
-
-[[segment]]
-range = "21400-21499"
-domain = "mmo-battle"
-owner = "module-mmorpg"
-reserved_only = true
-note = "见 MMO_BATTLE_PROTOCOL_SPEC §9"
-
-[[segment]]
-range = "21600-21699"
-domain = "mmo-scene"
-owner = "module-mmorpg"
-reserved_only = true
-note = "见 MMO_WORLD_SCENE_SPEC"
-
-[[segment]]
-range = "21700-21719"
-domain = "server-event-dispatch"
-owner = "neton-application-module-privchat"
-reserved_only = true
-note = "自 20920-20922 迁入,原值与 bot-follow 碰撞"
-
-[[segment]]
-range = "21800-21819"
-domain = "bot-lifecycle"
-owner = "neton-application-module-privchat"
-reserved_only = true
-note = "自 20920-20924 迁入;原注释自承'借用 transfer 业务段位'"
-
-[[segment]]
-range = "21900-21919"
-domain = "game-transfer"
-owner = "privchat-application-module-game"
-reserved_only = true
-note = "自 20403/20404(好友域)迁入,原值属 UserInBlacklist/FriendRequestExpired"
-
-[[segment]]
-range = "21000-21099"
-domain = "application-existing"
-owner = "neton-application-module-privchat"
-reserved_only = true
-note = "System User 等既有 application 码"
-
-[[segment]]
-range = "30000-30999"
-domain = "game-domain"
-owner = "privchat-application-module-game"
-reserved_only = true
-note = "棋牌玩法自有错误码(GameErrorCode)"
-
-# --- 核心码定义 ---
+# --- 核心码 ---
 
 [[code]]
 code = 20900
