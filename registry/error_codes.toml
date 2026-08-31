@@ -572,6 +572,8 @@ domain = "legacy-protocol"
 code = 20610
 name = "UploadRangeOverlap"
 domain = "legacy-protocol"
+# TS SDK 省略了 UPLOAD_ 前缀,同一语义的另一常量名。
+aliases = ["CODE_RANGE_OVERLAP"]
 
 [[code]]
 code = 20611
@@ -582,21 +584,29 @@ domain = "legacy-protocol"
 code = 20612
 name = "UploadSessionBusy"
 domain = "legacy-protocol"
+# TS SDK 省略了 UPLOAD_ 前缀,同一语义的另一常量名。
+aliases = ["CODE_SESSION_BUSY"]
 
 [[code]]
 code = 20613
 name = "UploadSessionGone"
 domain = "legacy-protocol"
+# TS SDK 省略了 UPLOAD_ 前缀,同一语义的另一常量名。
+aliases = ["CODE_SESSION_GONE"]
 
 [[code]]
 code = 20614
 name = "UploadSessionCompleted"
 domain = "legacy-protocol"
+# TS SDK 省略了 UPLOAD_ 前缀,同一语义的另一常量名。
+aliases = ["CODE_SESSION_COMPLETED"]
 
 [[code]]
 code = 20615
 name = "UploadMissingRanges"
 domain = "legacy-protocol"
+# TS SDK 省略了 UPLOAD_ 前缀,同一语义的另一常量名。
+aliases = ["CODE_MISSING_RANGES"]
 
 [[code]]
 code = 20616
@@ -652,3 +662,11 @@ domain = "legacy-protocol"
 code = 20802
 name = "DeviceNotVerified"
 domain = "legacy-protocol"
+
+# --- System User 核心段(21000-21009)---
+# 由 privchat-server 的 group/create 与 group/member/add 返回。
+
+[[code]]
+code = 21001
+name = "SystemUserNotGroupInvitable"
+domain = "system-user-core"
