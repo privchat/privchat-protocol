@@ -339,16 +339,14 @@ pub enum ErrorCode {
     // The old numbers are NOT accepted as transfer aliases — they remain
     // valid Sync codes, so double-mapping would keep the ambiguity alive.
     // Migration table: spec 01-global/ERROR_CODE_SPEC §3.4.12.
-    /// Target session is online but has not subscribed the channel
+    /// Target session is online but has not subscribed the channel.
+    ///
+    /// This is the only transfer code the core produces (privchat-server
+    /// delivery routing). 21501-21504 are raised by the application
+    /// dispatcher and belong to its own domain — the core does not need to
+    /// know what an unregistered business service is, and TransferResponse
+    /// carries a plain integer either way.
     ChannelNotSubscribed = 21500,
-    /// `channel_id` has no `privchat_business_channel` binding (or disabled)
-    ChannelNotBound = 21501,
-    /// `service_id` not registered, or route prefix mismatches service name
-    TransferServiceNotFound = 21502,
-    /// Service `status = 0`
-    TransferServiceDisabled = 21503,
-    /// External `callback_url` invocation failed (non-timeout)
-    TransferCallbackFailed = 21504,
 
     // System User (21000-21099) — spec 07-application/SYSTEM_USER_SPEC §4
     /// System User (`user_type=1`) cannot be added to group; rejected by
@@ -501,10 +499,6 @@ impl ErrorCode {
 
             // Channel Transfer (21500-21519)
             Self::ChannelNotSubscribed => "Target is online but not subscribed to the channel",
-            Self::ChannelNotBound => "Channel is not bound to any business service",
-            Self::TransferServiceNotFound => "Transfer service not found",
-            Self::TransferServiceDisabled => "Transfer service is disabled",
-            Self::TransferCallbackFailed => "Transfer callback invocation failed",
         }
     }
 
@@ -643,10 +637,6 @@ impl ErrorCode {
             20923 => Some(Self::BotFollowRateLimited),
             21001 => Some(Self::SystemUserNotGroupInvitable),
             21500 => Some(Self::ChannelNotSubscribed),
-            21501 => Some(Self::ChannelNotBound),
-            21502 => Some(Self::TransferServiceNotFound),
-            21503 => Some(Self::TransferServiceDisabled),
-            21504 => Some(Self::TransferCallbackFailed),
 
             _ => None,
         }
@@ -804,10 +794,6 @@ mod tests {
     #[test]
     fn transfer_codes_are_relocated() {
         assert_eq!(ErrorCode::ChannelNotSubscribed.code(), 21500);
-        assert_eq!(ErrorCode::ChannelNotBound.code(), 21501);
-        assert_eq!(ErrorCode::TransferServiceNotFound.code(), 21502);
-        assert_eq!(ErrorCode::TransferServiceDisabled.code(), 21503);
-        assert_eq!(ErrorCode::TransferCallbackFailed.code(), 21504);
     }
 
     /// No two variants may share a numeric code.
@@ -822,10 +808,6 @@ mod tests {
             ErrorCode::BotDisabled,
             ErrorCode::BotFollowRateLimited,
             ErrorCode::ChannelNotSubscribed,
-            ErrorCode::ChannelNotBound,
-            ErrorCode::TransferServiceNotFound,
-            ErrorCode::TransferServiceDisabled,
-            ErrorCode::TransferCallbackFailed,
             ErrorCode::SystemUserNotGroupInvitable,
         ];
         let mut seen = std::collections::HashSet::new();

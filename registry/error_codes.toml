@@ -1,13 +1,18 @@
-# PrivChat 错误码单一权威源(machine-readable registry)
+# PrivChat 错误码注册表
 #
-# 为什么需要它:错误码此前由 Rust enum、Rust CODE_* 常量、Kotlin const val、
-# TypeScript case 分支各自手写,没有交叉校验 —— 结果 20900/20902 与
-# 20920-20923 各自出现了 2~4 套语义(见 ERROR_CODE_SPEC §3.4.12)。
+# **只登记核心通信层的错误码**。application 业务模块的错误码属于各自的
+# 业务域,**不进本表** —— 核心层不需要认识 `SceneNotFound` 这类玩法概念,
+# `TransferResponse.code` 本来就是整数,SDK 与客户端原样透传未知业务码即可。
+#
+# 但业务段位**必须在此保留**:否则核心层可能把一个已被业务占用的号段
+# 再分配一次,重演 20900(Sync ↔ Transfer)与 20920(Bot ↔ ServerEvent ↔
+# BotLifecycle)那两组真实碰撞。
 #
 # 规则:
-#   1. 新增错误码**必须**先登记在此;
-#   2. 各语言常量由此生成或与此校验,**不得**手写数字字面量;
-#   3. 段位一经分配不得跨域借用 —— "临时借用别人的段位"是历次碰撞的根因。
+#   1. 核心码:在本表登记完整定义;
+#   2. 业务段位:在本表**只登记保留**(range + owner),码定义由 owner 自持;
+#   3. 任何模块都不得使用未保留的段位;
+#   4. 各业务模块应在自己仓内维护同构的 registry,并跑同一个门禁脚本。
 
 [[segment]]
 range = "20900-20919"
@@ -22,60 +27,76 @@ owner = "privchat-protocol"
 note = "protocol 枚举已定义 BotNotFound/NotABot/BotDisabled/BotFollowRateLimited"
 
 [[segment]]
-range = "21400-21499"
-domain = "mmo-battle"
-owner = "module-mmorpg"
-note = "见 MMO_BATTLE_PROTOCOL_SPEC §9"
-
-[[segment]]
-range = "21500-21519"
-domain = "channel-transfer"
-owner = "privchat-protocol"
-note = "自 20900-20904 迁入,原值与 sync-recovery 碰撞"
-
-[[segment]]
-range = "21600-21699"
-domain = "mmo-scene"
-owner = "module-mmorpg"
-note = "见 MMO_WORLD_SCENE_SPEC"
-
-[[segment]]
-range = "21700-21719"
-domain = "server-event-dispatch"
-owner = "neton-application-module-privchat"
-note = "自 20920-20922 迁入,原值与 bot-follow 碰撞"
-
-[[segment]]
-range = "21800-21819"
-domain = "bot-lifecycle"
-owner = "neton-application-module-privchat"
-note = "自 20920-20924 迁入;原注释自承'借用 transfer 业务段位'"
-
-[[segment]]
-range = "21900-21919"
-domain = "game-transfer"
-owner = "privchat-application-module-game"
-note = "自 20403/20404(好友域)迁入,原值属 UserInBlacklist/FriendRequestExpired"
-
-[[segment]]
 range = "0-20899"
 domain = "legacy-protocol"
 owner = "privchat-protocol"
 note = "既有通用码,由 ErrorCode 枚举定义"
 
 [[segment]]
+range = "21500-21500"
+domain = "channel-transfer"
+owner = "privchat-protocol"
+note = "仅 ChannelNotSubscribed:由 privchat-server 的投递路由产生,属核心"
+
+[[segment]]
+range = "21501-21519"
+domain = "transfer-dispatch"
+owner = "neton-application-module-privchat"
+reserved_only = true
+note = "application 侧 dispatcher 的业务码(ChannelNotBound 等),码定义由 owner 自持"
+
+# --- 业务段位保留(码定义由 owner 自持,不在本表)---
+
+[[segment]]
+range = "21400-21499"
+domain = "mmo-battle"
+owner = "module-mmorpg"
+reserved_only = true
+note = "见 MMO_BATTLE_PROTOCOL_SPEC §9"
+
+[[segment]]
+range = "21600-21699"
+domain = "mmo-scene"
+owner = "module-mmorpg"
+reserved_only = true
+note = "见 MMO_WORLD_SCENE_SPEC"
+
+[[segment]]
+range = "21700-21719"
+domain = "server-event-dispatch"
+owner = "neton-application-module-privchat"
+reserved_only = true
+note = "自 20920-20922 迁入,原值与 bot-follow 碰撞"
+
+[[segment]]
+range = "21800-21819"
+domain = "bot-lifecycle"
+owner = "neton-application-module-privchat"
+reserved_only = true
+note = "自 20920-20924 迁入;原注释自承'借用 transfer 业务段位'"
+
+[[segment]]
+range = "21900-21919"
+domain = "game-transfer"
+owner = "privchat-application-module-game"
+reserved_only = true
+note = "自 20403/20404(好友域)迁入,原值属 UserInBlacklist/FriendRequestExpired"
+
+[[segment]]
 range = "21000-21099"
 domain = "application-existing"
 owner = "neton-application-module-privchat"
+reserved_only = true
 note = "System User 等既有 application 码"
 
 [[segment]]
 range = "30000-30999"
 domain = "game-domain"
 owner = "privchat-application-module-game"
+reserved_only = true
 note = "棋牌玩法自有错误码(GameErrorCode)"
 
-# --- 已分配的具体码 ---
+# --- 核心码定义 ---
 
 [[code]]
 code = 20900
@@ -116,76 +137,6 @@ domain = "bot-follow"
 code = 21500
 name = "ChannelNotSubscribed"
 domain = "channel-transfer"
-
-[[code]]
-code = 21501
-name = "ChannelNotBound"
-domain = "channel-transfer"
-
-[[code]]
-code = 21502
-name = "TransferServiceNotFound"
-domain = "channel-transfer"
-
-[[code]]
-code = 21503
-name = "TransferServiceDisabled"
-domain = "channel-transfer"
-
-[[code]]
-code = 21504
-name = "TransferCallbackFailed"
-domain = "channel-transfer"
-
-[[code]]
-code = 21700
-name = "ServerEventHandlerNotRegistered"
-domain = "server-event-dispatch"
-
-[[code]]
-code = 21701
-name = "ServerEventInvalidPayload"
-domain = "server-event-dispatch"
-
-[[code]]
-code = 21702
-name = "ServerEventHandlerFailed"
-domain = "server-event-dispatch"
-
-[[code]]
-code = 21800
-name = "BotLifecycleUnsupported"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 21801
-name = "BotLifecyclePayloadInvalid"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 21802
-name = "BotProfileNotFound"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 21803
-name = "BotProfileDisabled"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 21804
-name = "BotBindingWriteFailed"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 21900
-name = "GameChannelMismatch"
-domain = "game-transfer"
-
-[[code]]
-code = 21901
-name = "GameUnknownRoute"
-domain = "game-transfer"
 
 [[code]]
 code = 0
@@ -766,119 +717,3 @@ domain = "legacy-protocol"
 code = 20802
 name = "DeviceNotVerified"
 domain = "legacy-protocol"
-
-[[code]]
-code = 21001
-name = "SystemUserNotGroupInvitable"
-domain = "application-existing"
-
-[[code]]
-code = 21010
-name = "SystemUserNotFound"
-domain = "application-existing"
-
-[[code]]
-code = 21011
-name = "SystemUserDisabled"
-domain = "application-existing"
-
-[[code]]
-code = 21012
-name = "NoConsumerForService"
-domain = "application-existing"
-
-[[code]]
-code = 21013
-name = "ConsumerRejected"
-domain = "application-existing"
-
-[[code]]
-code = 21014
-name = "ConsumerThrew"
-domain = "application-existing"
-
-[[code]]
-code = 21015
-name = "PayloadDecodeFailed"
-domain = "application-existing"
-
-[[code]]
-code = 21805
-name = "BotBindingMissing"
-domain = "bot-lifecycle"
-
-[[code]]
-code = 30001
-name = "RoomNotFound"
-domain = "game-domain"
-
-[[code]]
-code = 30002
-name = "RoomClosed"
-domain = "game-domain"
-
-[[code]]
-code = 30003
-name = "RoomUnavailable"
-domain = "game-domain"
-
-[[code]]
-code = 30004
-name = "RoomPrivate"
-domain = "game-domain"
-
-[[code]]
-code = 21600
-name = "SceneNotFound"
-domain = "mmo-scene"
-
-[[code]]
-code = 21601
-name = "SceneSessionInvalid"
-domain = "mmo-scene"
-
-[[code]]
-code = 21602
-name = "SceneGenerationMismatch"
-domain = "mmo-scene"
-
-[[code]]
-code = 21603
-name = "SceneMoveTargetUnreachable"
-domain = "mmo-scene"
-
-[[code]]
-code = 21604
-name = "SceneMoveNotAllowed"
-domain = "mmo-scene"
-
-[[code]]
-code = 21605
-name = "SceneMovementSeqStale"
-domain = "mmo-scene"
-
-[[code]]
-code = 21606
-name = "SceneIdempotencyKeyReuse"
-domain = "mmo-scene"
-
-[[code]]
-code = 21607
-name = "SceneEntityNotControllable"
-domain = "mmo-scene"
-
-[[code]]
-code = 21608
-name = "ScenePayloadTooLarge"
-domain = "mmo-scene"
-
-[[code]]
-code = 21609
-name = "SceneProtocolVersionUnsupported"
-domain = "mmo-scene"
-
-[[code]]
-code = 21610
-name = "SceneCommandInvalid"
-domain = "mmo-scene"
-

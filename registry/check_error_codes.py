@@ -238,7 +238,7 @@ def main() -> int:
                 ", ".join(f"{n} ({lang} {p})" for lang, n, p in uses if n != "<literal>")
             )
 
-    # 2. 已登记码的名称必须与 registry 一致
+    # 2. 已登记码的名称必须与 registry 一致(仅核心码;业务码名称归 owner)
     for code, uses in sorted(found.items()):
         if code not in codes:
             continue
@@ -249,16 +249,28 @@ def main() -> int:
             if not same_semantic(name, want):
                 problems.append(f"[不符] {code} registry 为 {want},但 {p} 定义为 {name}")
 
-    # 3. 定义了却未登记
+    # 3. 定义了却未登记。
+    #    业务段位(reserved_only)内的码由 owner 自持,不要求登记在核心表 ——
+    #    核心层不该认识 SceneNotFound 这类玩法概念。但它们**必须落在某个
+    #    已保留的段位内**:用未保留的号段才是真问题,那正是历次碰撞的起点。
+    reserved = {s["domain"] for s in raw_segments if s.get("reserved_only")}
     for code, uses in sorted(found.items()):
         if code in codes or code < 20000:
             continue
         real = [u for u in uses if u[1] != "<literal>"]
-        if real:
+        if not real:
+            continue
+        dom = domain_of(code, segments)
+        if dom in reserved:
+            continue   # 业务码,落在已保留段位内 —— 合规
+        if dom is None:
             problems.append(
-                f"[未登记] {code} 在代码中定义但不在 registry: " +
-                ", ".join(f"{n} ({p})" for _, n, p in real)
-            )
+                f"[未保留段位] {code} 不在任何已登记段位内: " +
+                ", ".join(f"{n} ({p})" for _, n, p in real))
+        else:
+            problems.append(
+                f"[未登记] {code} 属核心域 {dom} 却未登记: " +
+                ", ".join(f"{n} ({p})" for _, n, p in real))
 
     if problems:
         print(f"错误码门禁未通过({len(problems)} 项):\n")
