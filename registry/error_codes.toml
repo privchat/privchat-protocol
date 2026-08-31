@@ -876,3 +876,9 @@ domain = "mmo-scene"
 code = 21609
 name = "SceneProtocolVersionUnsupported"
 domain = "mmo-scene"
+
+[[code]]
+code = 21610
+name = "SceneCommandInvalid"
+domain = "mmo-scene"
+
