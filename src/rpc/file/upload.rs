@@ -108,6 +108,12 @@ pub struct FileRequestUploadTokenResponse {
     /// 每一个分片请求——客户端拿到的这份只是**同一件事的可读副本**，不是另一个真源。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_plan: Option<UploadPlanDto>,
+    /// 本次上传该用的全站加密密钥（v2）。
+    ///
+    /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
+    /// `None` = 服务端未启用 v2，客户端沿用 v1 的 per-file 随机 CEK。
+    #[serde(default)]
+    pub attachment_key: Option<AttachmentKey>,
 }
 
 /// 分片方案（与服务端 `UploadPlan` 同构）。
@@ -195,6 +201,12 @@ pub struct FileRequestChunkedUploadTokenResponse {
     /// 仅 `s3_multipart_v1`：总分片数。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub total_parts: Option<u32>,
+    /// 本次上传该用的全站加密密钥（v2）。
+    ///
+    /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
+    /// `None` = 服务端未启用 v2，客户端沿用 v1 的 per-file 随机 CEK。
+    #[serde(default)]
+    pub attachment_key: Option<AttachmentKey>,
 }
 
 /// 获取文件 URL 请求
@@ -208,10 +220,25 @@ pub struct FileGetUrlRequest {
     pub user_id: u64,
 }
 
+/// 附件加密密钥（v2 全站统一密钥，ATTACHMENT_ENCRYPTION_SPEC §0.1）。
+///
+/// 🔴 只在**已鉴权**的响应里出现，绝不进 URL、不进日志。
+/// 威胁模型是对象存储服务商：明文和密钥都不能到服务端或桶里，所以密钥经由我们
+/// 自己的接口下发给客户端，加解密只在客户端做。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AttachmentKey {
+    /// 与密文 blob 头部的 key_id 对应；解密方按它挑密钥。
+    pub key_id: u8,
+    /// base64url(no-pad) 的 32 字节密钥。
+    pub key: String,
+}
+
 /// 获取文件 URL 响应
 ///
 /// RPC路由: `file/get_url`
 #[derive(Debug, Clone, Serialize, Deserialize)]
+
+
 pub struct FileGetUrlResponse {
     pub file_url: String,
     pub expires_at: i64,
@@ -225,8 +252,17 @@ pub struct FileGetUrlResponse {
     #[serde(default)]
     pub encryption_version: i32,
     /// CEK（base64url 32B）；nonce 在密文 blob 头部。version=0 时 None。绝不进 URL/日志。
+    ///
+    /// 仅 `encryption_version=1`（历史 per-file 密钥）使用；v2 走 [`attachment_keys`]。
     #[serde(default)]
     pub cek: Option<String>,
+    /// v2 可用的全站密钥集合：当前密钥 + 保留的历史密钥。
+    ///
+    /// 给的是**集合**而不是单把：轮换期两代对象并存，客户端读密文 blob 头部的
+    /// key_id 自己挑。这样服务端不必为每个文件记住用的是哪一代，也就不需要为轮换
+    /// 加一列、做一次迁移。
+    #[serde(default)]
+    pub attachment_keys: Vec<AttachmentKey>,
     /// 服务端对**已存储字节**算出的 SHA-256。
     ///
     /// 转发一份已有附件时用它：客户端直接拿这个摘要去 prepare + claim，
