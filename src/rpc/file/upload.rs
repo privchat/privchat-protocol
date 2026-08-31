@@ -225,12 +225,25 @@ pub struct FileGetUrlRequest {
 /// 🔴 只在**已鉴权**的响应里出现，绝不进 URL、不进日志。
 /// 威胁模型是对象存储服务商：明文和密钥都不能到服务端或桶里，所以密钥经由我们
 /// 自己的接口下发给客户端，加解密只在客户端做。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct AttachmentKey {
     /// 与密文 blob 头部的 key_id 对应；解密方按它挑密钥。
     pub key_id: u8,
     /// base64url(no-pad) 的 32 字节密钥。
     pub key: String,
+}
+
+/// 手写 `Debug`，密钥渲染成 `[REDACTED]`。
+///
+/// 「目前没有主动打印」不构成保证——一次 `{:?}` 的响应 dump、一条 panic 消息，
+/// 密钥就进日志了。同一个坑在 `QuicServerConfig` 上已经踩过一次。
+impl std::fmt::Debug for AttachmentKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AttachmentKey")
+            .field("key_id", &self.key_id)
+            .field("key", &"[REDACTED]")
+            .finish()
+    }
 }
 
 /// 获取文件 URL 响应
@@ -256,13 +269,13 @@ pub struct FileGetUrlResponse {
     /// 仅 `encryption_version=1`（历史 per-file 密钥）使用；v2 走 [`attachment_keys`]。
     #[serde(default)]
     pub cek: Option<String>,
-    /// v2 可用的全站密钥集合：当前密钥 + 保留的历史密钥。
+    /// v2：解开**这一个**附件所需的密钥。
     ///
-    /// 给的是**集合**而不是单把：轮换期两代对象并存，客户端读密文 blob 头部的
-    /// key_id 自己挑。这样服务端不必为每个文件记住用的是哪一代，也就不需要为轮换
-    /// 加一列、做一次迁移。
+    /// 🔴 只给这个文件用的那把，不给全量密钥表——服务端按文件行上记录的
+    /// `encryption_key_id` 取出对应密钥。下发全量意味着任何拿到一个附件的人
+    /// 就获得了全部历史对象的解密能力。
     #[serde(default)]
-    pub attachment_keys: Vec<AttachmentKey>,
+    pub attachment_key: Option<AttachmentKey>,
     /// 服务端对**已存储字节**算出的 SHA-256。
     ///
     /// 转发一份已有附件时用它：客户端直接拿这个摘要去 prepare + claim，
