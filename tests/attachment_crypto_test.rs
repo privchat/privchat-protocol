@@ -33,8 +33,8 @@ fn split_chunks(blob: &[u8]) -> (Vec<u8>, Vec<Vec<u8>>) {
     let mut rest = &blob[HEADER_LEN..];
     let mut chunks = Vec::new();
     for _ in 0..header.chunk_count {
-        let len = u32::from_be_bytes(rest[0..4].try_into().unwrap()) as usize;
-        let end = 4 + 16 + len;
+        let len = u32::from_be_bytes(rest[12..16].try_into().unwrap()) as usize;
+        let end = 12 + 4 + 16 + len;
         chunks.push(rest[..end].to_vec());
         rest = &rest[end..];
     }
@@ -168,8 +168,8 @@ fn tampering_with_the_header_is_rejected() {
     let k = key(7);
     let plain: Vec<u8> = (0..4 * SMALL as usize).map(|i| i as u8).collect();
     let blob = seal_small(&plain, &k);
-    // key_id / nonce_prefix / chunk_plain_size / plaintext_size 各取一处。
-    for offset in [3usize, 5, 13, 21] {
+    // key_id / object_id / chunk_plain_size / plaintext_size 各取一处。
+    for offset in [3usize, 7, 21, 29] {
         let mut tampered = blob.clone();
         tampered[offset] ^= 0x01;
         assert!(
@@ -184,7 +184,7 @@ fn tampering_with_the_header_is_rejected() {
 fn an_inconsistent_header_is_rejected_before_decryption() {
     let k = key(7);
     let mut blob = seal_small(&(0u8..32).collect::<Vec<_>>(), &k);
-    blob[16..20].copy_from_slice(&99u32.to_be_bytes()); // chunk_count
+    blob[24..28].copy_from_slice(&99u32.to_be_bytes()); // chunk_count
     let err = AttachmentHeader::parse(&blob).expect_err("must refuse");
     assert!(err.contains("inconsistent"), "{err}");
     assert!(decrypt_attachment(&blob, &k).is_err());
@@ -214,7 +214,7 @@ fn the_sealed_size_is_predictable_without_the_key() {
     let big = 1_852_290u64;
     assert_eq!(
         sealed_len(big, 1024 * 1024).unwrap(),
-        HEADER_LEN as u64 + 2 * 20 + big
+        HEADER_LEN as u64 + 2 * 32 + big
     );
 }
 
@@ -288,8 +288,8 @@ fn a_last_chunk_shorter_than_the_header_implies_is_rejected() {
     // 伪造一个更短的末块：长度字段跟着改小，自身格式完全自洽。
     let mut shorter = chunks[last].clone();
     shorter.truncate(shorter.len() - 10);
-    let new_len = (shorter.len() - 4 - 16) as u32;
-    shorter[0..4].copy_from_slice(&new_len.to_be_bytes());
+    let new_len = (shorter.len() - 12 - 4 - 16) as u32;
+    shorter[12..16].copy_from_slice(&new_len.to_be_bytes());
     chunks[last] = shorter;
     let err = decrypt_attachment(&reassemble(&header, &chunks), &k).expect_err("must refuse");
     // 断言具体消息是为了钉住**是哪道防线**拦下的：逐块长度校验。只断言"被拒绝"的话，
@@ -323,7 +323,7 @@ fn a_complete_streaming_read_finishes_clean() {
 fn an_absurd_declared_size_is_refused_before_any_allocation() {
     let k = key(7);
     let mut blob = seal_small(b"x", &k);
-    blob[20..28].copy_from_slice(&u64::MAX.to_be_bytes());
+    blob[28..36].copy_from_slice(&u64::MAX.to_be_bytes());
     let err = AttachmentHeader::parse(&blob).expect_err("must refuse");
     assert!(err.contains("larger than the format allows"), "{err}");
     assert!(decrypt_attachment(&blob, &k).is_err());
@@ -338,7 +338,7 @@ fn an_absurd_declared_size_is_refused_before_any_allocation() {
 fn an_out_of_range_chunk_size_is_refused() {
     let k = key(7);
     let mut blob = seal_small(b"x", &k);
-    blob[12..16].copy_from_slice(&1u32.to_be_bytes());
+    blob[20..24].copy_from_slice(&1u32.to_be_bytes());
     assert!(AttachmentHeader::parse(&blob).is_err());
     assert!(chunk_count_for(1024, 1).is_err());
     assert!(chunk_count_for(1024, u32::MAX).is_err());

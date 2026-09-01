@@ -13,7 +13,7 @@
 //!
 //! 冻结设计见 `ATTACHMENT_ENCRYPTION_SPEC`。两条要点：
 //!
-//! - **一把全站密钥 + 每个对象随机 nonce 前缀**。同一份明文两次封装产出不同密文，
+//! - **一把全站密钥 + 每块独立的随机 96 位 nonce**。同一份明文两次封装产出不同密文，
 //!   这没关系：跨用户秒传按**明文摘要**判重，第二个人根本不上传字节。
 //! - **分块，每块 AAD 绑 `SHA256(header) || chunk_index || plaintext_len`**。
 //!   分块是为了让服务端能边读边验（整文件单个 tag 要先缓冲完 500MB 视频才能判断）；
@@ -29,14 +29,15 @@ use sha2::{Digest, Sha256};
 
 pub const KEY_LEN: usize = 32;
 pub const TAG_LEN: usize = 16;
-pub const NONCE_PREFIX_LEN: usize = 8;
+pub const NONCE_LEN: usize = 12;
+pub const OBJECT_ID_LEN: usize = 16;
 
-/// `magic(2) || format_version(1) || key_id(1) || nonce_prefix(8)
+/// `magic(2) || format_version(1) || key_id(1) || object_id(16)
 ///  || chunk_plain_size(4) || chunk_count(4) || plaintext_size(8)`
-pub const HEADER_LEN: usize = 28;
+pub const HEADER_LEN: usize = 36;
 
-/// 每块的定长开销：`plaintext_len(4) || ... || tag(16)`。
-const CHUNK_OVERHEAD: usize = 4 + TAG_LEN;
+/// 每块的定长开销：`nonce(12) || plaintext_len(4) || ... || tag(16)`。
+const CHUNK_OVERHEAD: usize = NONCE_LEN + 4 + TAG_LEN;
 
 const MAGIC: [u8; 2] = *b"PC";
 
@@ -107,17 +108,21 @@ pub fn expected_chunk_len(header: &AttachmentHeader, index: u32) -> Result<u32, 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AttachmentHeader {
     pub encryption_key_id: u8,
-    /// 每个对象随机。nonce = `nonce_prefix || uint32_be(chunk_index)`。
+    /// 每个对象随机，**只用来做 AAD 的域分离**，不参与密钥派生。
     ///
-    /// 🔴 随机的原因是 AES-GCM 在同一密钥下重用 nonce 会直接崩（泄露明文异或、可伪造）。
-    /// 8 字节随机前缀把全站单密钥下的碰撞概率压到可忽略。
-    pub nonce_prefix: [u8; NONCE_PREFIX_LEN],
+    /// 🔴 少了它，两份大小相同的文件 header 逐字节相同（同 key_id、同分块几何），
+    /// 于是每块的 AAD 也相同——把 A 的第 i 块换成 B 的第 i 块，认证照样通过。
+    /// 一次去掉 per-object salt 的简化就是这么引入了跨对象嫁接，被
+    /// `substituting_a_chunk_from_another_object_is_rejected` 当场抓住。
+    ///
+    /// 它不是密钥材料，不需要保密，也不需要 HKDF——只需要每个对象不一样。
+    pub object_id: [u8; OBJECT_ID_LEN],
     pub chunk_plain_size: u32,
     pub chunk_count: u32,
     pub plaintext_size: u64,
 }
 
-/// 🔴 手写 Debug：nonce 前缀不是秘密，但结构体将来可能加字段，
+/// 🔴 手写 Debug：字段本身都不是秘密，但结构体将来可能加字段，
 /// derive 会把新字段自动带进日志。这里只渲染排障真正需要的东西。
 impl std::fmt::Debug for AttachmentHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -136,10 +141,10 @@ impl AttachmentHeader {
         out[0..2].copy_from_slice(&MAGIC);
         out[2] = FORMAT_VERSION;
         out[3] = self.encryption_key_id;
-        out[4..12].copy_from_slice(&self.nonce_prefix);
-        out[12..16].copy_from_slice(&self.chunk_plain_size.to_be_bytes());
-        out[16..20].copy_from_slice(&self.chunk_count.to_be_bytes());
-        out[20..28].copy_from_slice(&self.plaintext_size.to_be_bytes());
+        out[4..20].copy_from_slice(&self.object_id);
+        out[20..24].copy_from_slice(&self.chunk_plain_size.to_be_bytes());
+        out[24..28].copy_from_slice(&self.chunk_count.to_be_bytes());
+        out[28..36].copy_from_slice(&self.plaintext_size.to_be_bytes());
         out
     }
 
@@ -158,10 +163,10 @@ impl AttachmentHeader {
         }
         let header = Self {
             encryption_key_id: bytes[3],
-            nonce_prefix: bytes[4..12].try_into().expect("8 bytes"),
-            chunk_plain_size: u32::from_be_bytes(bytes[12..16].try_into().expect("4 bytes")),
-            chunk_count: u32::from_be_bytes(bytes[16..20].try_into().expect("4 bytes")),
-            plaintext_size: u64::from_be_bytes(bytes[20..28].try_into().expect("8 bytes")),
+            object_id: bytes[4..20].try_into().expect("16 bytes"),
+            chunk_plain_size: u32::from_be_bytes(bytes[20..24].try_into().expect("4 bytes")),
+            chunk_count: u32::from_be_bytes(bytes[24..28].try_into().expect("4 bytes")),
+            plaintext_size: u64::from_be_bytes(bytes[28..36].try_into().expect("8 bytes")),
         };
         // 头自洽性先于解密检查：块数和总长必须互相印证，否则截断攻击要等到
         // 最后一块缺失才暴露，而那时调用方可能已经把前面的明文交出去了。
@@ -194,10 +199,17 @@ fn check_key(site_key: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
-fn chunk_nonce(prefix: &[u8; NONCE_PREFIX_LEN], index: u32) -> [u8; 12] {
-    let mut nonce = [0u8; 12];
-    nonce[0..8].copy_from_slice(prefix);
-    nonce[8..12].copy_from_slice(&index.to_be_bytes());
+/// 🔴 **每块一个独立的随机 96 位 nonce，写在块头里。**
+///
+/// 早先的做法是"每对象一个 8 字节随机前缀 + 32 位块序号"。那不够：前缀只有 64 位，
+/// 两个对象撞上同一个前缀时，同序号的块就在同一把全站密钥下重用了 nonce——而 GCM 的
+/// nonce 重用是灾难性的（泄露明文异或、可伪造）。按生日界，10 亿个对象的碰撞概率
+/// 已经约 2.7%，不能叫"可忽略"。
+///
+/// 每块 12 字节的代价换掉这整类风险，而且不需要按对象派生密钥。
+fn random_nonce() -> [u8; NONCE_LEN] {
+    let mut nonce = [0u8; NONCE_LEN];
+    rand::thread_rng().fill_bytes(&mut nonce);
     nonce
 }
 
@@ -226,12 +238,11 @@ impl AttachmentSealer {
         chunk_plain_size: u32,
     ) -> Result<Self, String> {
         check_key(site_key)?;
-        let mut nonce_prefix = [0u8; NONCE_PREFIX_LEN];
-        rand::thread_rng().fill_bytes(&mut nonce_prefix);
-
+        let mut object_id = [0u8; OBJECT_ID_LEN];
+        rand::thread_rng().fill_bytes(&mut object_id);
         let header = AttachmentHeader {
             encryption_key_id: key_id,
-            nonce_prefix,
+            object_id,
             chunk_plain_size,
             chunk_count: chunk_count_for(plaintext_size, chunk_plain_size)?,
             plaintext_size,
@@ -267,11 +278,12 @@ impl AttachmentSealer {
             ));
         }
         let plaintext_len = expected;
+        let nonce = random_nonce();
         let aad = chunk_aad(&self.header_digest, index, plaintext_len);
         let sealed = self
             .cipher
             .encrypt(
-                Nonce::from_slice(&chunk_nonce(&self.header.nonce_prefix, index)),
+                Nonce::from_slice(&nonce),
                 Payload {
                     msg: plaintext,
                     aad: &aad,
@@ -280,7 +292,8 @@ impl AttachmentSealer {
             .map_err(|_| "attachment encrypt failed".to_string())?;
 
         self.next_index += 1;
-        let mut out = Vec::with_capacity(4 + sealed.len());
+        let mut out = Vec::with_capacity(CHUNK_OVERHEAD + plaintext.len());
+        out.extend_from_slice(&nonce);
         out.extend_from_slice(&plaintext_len.to_be_bytes());
         out.extend_from_slice(&sealed);
         Ok(out)
@@ -318,7 +331,7 @@ impl AttachmentOpener {
         self.header
     }
 
-    /// 解开下一块。`sealed` 是 `plaintext_len(4) || ct || tag`。
+    /// 解开下一块。`sealed` 是 `nonce(12) || plaintext_len(4) || ct || tag`。
     ///
     /// 序号由解密器自己数，不从数据里读——读来的序号可以被改，数出来的不行。
     pub fn open_chunk(&mut self, sealed: &[u8]) -> Result<Vec<u8>, String> {
@@ -329,7 +342,9 @@ impl AttachmentOpener {
         if sealed.len() < CHUNK_OVERHEAD {
             return Err(format!("attachment chunk {index} is truncated"));
         }
-        let plaintext_len = u32::from_be_bytes(sealed[0..4].try_into().expect("4 bytes"));
+        let nonce: [u8; NONCE_LEN] = sealed[0..NONCE_LEN].try_into().expect("12 bytes");
+        let plaintext_len =
+            u32::from_be_bytes(sealed[NONCE_LEN..NONCE_LEN + 4].try_into().expect("4 bytes"));
         // 🔴 每块该有多长是从受认证的头**算出来**的，不是从这一块自己声明的字段读来的。
         // 读来的值只用于比对；拿它决定"允许多长"就等于让被检查的一方来定检查标准。
         let expected = expected_chunk_len(&self.header, index)?;
@@ -345,9 +360,9 @@ impl AttachmentOpener {
         let plaintext = self
             .cipher
             .decrypt(
-                Nonce::from_slice(&chunk_nonce(&self.header.nonce_prefix, index)),
+                Nonce::from_slice(&nonce),
                 Payload {
-                    msg: &sealed[4..],
+                    msg: &sealed[NONCE_LEN + 4..],
                     aad: &aad,
                 },
             )
@@ -425,10 +440,11 @@ pub fn decrypt_attachment(blob: &[u8], site_key: &[u8]) -> Result<Vec<u8>, Strin
     let mut out = Vec::with_capacity(header.plaintext_size.min(blob.len() as u64) as usize);
     let mut rest = &blob[HEADER_LEN..];
     for _ in 0..header.chunk_count {
-        if rest.len() < 4 {
+        if rest.len() < CHUNK_OVERHEAD {
             return Err("attachment is truncated".to_string());
         }
-        let plaintext_len = u32::from_be_bytes(rest[0..4].try_into().expect("4 bytes")) as usize;
+        let plaintext_len =
+            u32::from_be_bytes(rest[NONCE_LEN..NONCE_LEN + 4].try_into().expect("4 bytes")) as usize;
         let end = CHUNK_OVERHEAD
             .checked_add(plaintext_len)
             .filter(|end| *end <= rest.len())
