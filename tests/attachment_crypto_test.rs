@@ -8,16 +8,20 @@
 
 use privchat_protocol::attachment_crypto::{
     chunk_count_for, decrypt_attachment, decrypt_downloaded_attachment_bytes, encrypt_attachment,
-    encrypt_attachment_with_chunk_size, key_id_of, sealed_len, AttachmentHeader, AttachmentOpener,
-    AttachmentSealer, HEADER_LEN,
+    encrypt_attachment_with_chunk_size, key_id_of, open_downloaded_bytes, sealed_len,
+    AttachmentHeader, AttachmentOpener, AttachmentSealer, HEADER_LEN, MAX_PLAINTEXT_SIZE,
+    MIN_CHUNK_PLAIN_SIZE,
 };
 
 fn key(seed: u8) -> [u8; 32] {
     [seed; 32]
 }
 
-/// 小块，让几十字节的测试数据也能真的分成多块。
-const SMALL: u32 = 8;
+/// 允许的最小块，让几 KB 的测试数据也能真的分成多块。
+///
+/// 块大小有下限，是因为解析要在**任何认证发生之前**读这个字段：不夹上下限的话，
+/// 一个 `chunk_plain_size=1` 的头会让块数等于文件字节数。
+const SMALL: u32 = MIN_CHUNK_PLAIN_SIZE;
 
 fn seal_small(plain: &[u8], k: &[u8; 32]) -> Vec<u8> {
     encrypt_attachment_with_chunk_size(plain, k, 1, SMALL).expect("encrypt")
@@ -50,7 +54,7 @@ fn reassemble(header: &[u8], chunks: &[Vec<u8>]) -> Vec<u8> {
 fn round_trips_across_chunk_boundaries() {
     let k = key(7);
     // 空、单块、正好整除、跨块余数——边界都要过。
-    for len in [0usize, 1, 7, 8, 9, 16, 17, 100] {
+    for len in [0usize, 1, 4095, 4096, 4097, 8192, 8193, 10_000] {
         let plain: Vec<u8> = (0..len).map(|i| i as u8).collect();
         let blob = seal_small(&plain, &k);
         assert_eq!(decrypt_attachment(&blob, &k).expect("decrypt"), plain, "len {len}");
@@ -113,7 +117,7 @@ fn tampering_with_a_chunk_is_detected() {
 #[test]
 fn reordering_chunks_is_rejected() {
     let k = key(7);
-    let plain: Vec<u8> = (0..32).collect();
+    let plain: Vec<u8> = (0..4 * SMALL as usize).map(|i| i as u8).collect();
     let blob = seal_small(&plain, &k);
     let (header, mut chunks) = split_chunks(&blob);
     assert!(chunks.len() >= 4);
@@ -126,8 +130,8 @@ fn reordering_chunks_is_rejected() {
 #[test]
 fn substituting_a_chunk_from_another_object_is_rejected() {
     let k = key(7);
-    let a = seal_small(&(0u8..32).collect::<Vec<_>>(), &k);
-    let b = seal_small(&(100u8..132).collect::<Vec<_>>(), &k);
+    let a = seal_small(&(0..4 * SMALL as usize).map(|i| i as u8).collect::<Vec<_>>(), &k);
+    let b = seal_small(&(0..4 * SMALL as usize).map(|i| (i + 7) as u8).collect::<Vec<_>>(), &k);
     let (header_a, mut chunks_a) = split_chunks(&a);
     let (_, chunks_b) = split_chunks(&b);
     chunks_a[1] = chunks_b[1].clone();
@@ -138,7 +142,8 @@ fn substituting_a_chunk_from_another_object_is_rejected() {
 #[test]
 fn truncating_the_last_chunk_is_rejected() {
     let k = key(7);
-    let blob = seal_small(&(0u8..32).collect::<Vec<_>>(), &k);
+    let plain: Vec<u8> = (0..4 * SMALL as usize).map(|i| i as u8).collect();
+    let blob = seal_small(&plain, &k);
     let (header, mut chunks) = split_chunks(&blob);
     chunks.pop();
     assert!(decrypt_attachment(&reassemble(&header, &chunks), &k).is_err());
@@ -149,7 +154,8 @@ fn truncating_the_last_chunk_is_rejected() {
 #[test]
 fn a_streaming_reader_that_stops_early_fails_at_finish() {
     let k = key(7);
-    let blob = seal_small(&(0u8..32).collect::<Vec<_>>(), &k);
+    let plain: Vec<u8> = (0..4 * SMALL as usize).map(|i| i as u8).collect();
+    let blob = seal_small(&plain, &k);
     let (_, chunks) = split_chunks(&blob);
     let mut opener = AttachmentOpener::new(&blob, &k).expect("opener");
     opener.open_chunk(&chunks[0]).expect("first chunk opens");
@@ -160,7 +166,8 @@ fn a_streaming_reader_that_stops_early_fails_at_finish() {
 #[test]
 fn tampering_with_the_header_is_rejected() {
     let k = key(7);
-    let blob = seal_small(&(0u8..32).collect::<Vec<_>>(), &k);
+    let plain: Vec<u8> = (0..4 * SMALL as usize).map(|i| i as u8).collect();
+    let blob = seal_small(&plain, &k);
     for offset in [3usize, 5, 21, 29] {
         let mut tampered = blob.clone();
         tampered[offset] ^= 0x01;
@@ -198,7 +205,7 @@ fn the_key_id_travels_with_the_object() {
 #[test]
 fn the_sealed_size_is_predictable_without_the_key() {
     let k = key(3);
-    for len in [0usize, 1, 7, 8, 9, 1024] {
+    for len in [0usize, 1, 4095, 4096, 4097, 20_000] {
         let blob = seal_small(&vec![0xabu8; len], &k);
         assert_eq!(blob.len() as u64, sealed_len(len as u64, SMALL).unwrap(), "明文 {len} 字节");
     }
@@ -242,7 +249,7 @@ fn an_unknown_format_version_is_refused() {
 /// 密文，token 里签的 sealed_size 就对不上。这里验的是 sealer 不接受短块。
 #[test]
 fn a_short_middle_chunk_is_refused_by_the_sealer() {
-    let mut sealer = AttachmentSealer::new(&key(1), 1, 32, SMALL).expect("sealer");
+    let mut sealer = AttachmentSealer::new(&key(1), 1, 4 * SMALL as u64, SMALL).expect("sealer");
     let err = sealer.seal_chunk(&[0u8; 3]).expect_err("must refuse");
     assert!(err.contains("exactly"), "{err}");
 }
@@ -250,8 +257,10 @@ fn a_short_middle_chunk_is_refused_by_the_sealer() {
 /// 多封一块也要拒——头里声明几块就是几块。
 #[test]
 fn sealing_more_chunks_than_declared_is_refused() {
-    let mut sealer = AttachmentSealer::new(&key(1), 1, 8, SMALL).expect("sealer");
-    sealer.seal_chunk(&[0u8; 8]).expect("the only chunk");
+    let mut sealer = AttachmentSealer::new(&key(1), 1, SMALL as u64, SMALL).expect("sealer");
+    sealer
+        .seal_chunk(&vec![0u8; SMALL as usize])
+        .expect("the only chunk");
     assert!(sealer.is_complete());
     assert!(sealer.seal_chunk(&[]).is_err());
 }
@@ -262,4 +271,112 @@ fn a_key_of_the_wrong_length_is_refused() {
     assert!(AttachmentSealer::new(&[0u8; 16], 1, 8, SMALL).is_err());
     let blob = seal_small(b"x", &key(1));
     assert!(decrypt_attachment(&blob, &[0u8; 16]).is_err());
+}
+
+/// 🔴 末块的长度是**算出来的**，不是「不超过块大小即可」。
+///
+/// 只校验上界的话，攻击者可以拿一份认证合法但短了的末块换掉真末块——每块都验得过、
+/// 块数也对，调用方拿到的却是一份被悄悄截短的文件。
+#[test]
+fn a_last_chunk_shorter_than_the_header_implies_is_rejected() {
+    let k = key(7);
+    let plain: Vec<u8> = (0..(2 * SMALL as usize + 100)).map(|i| i as u8).collect();
+    let blob = seal_small(&plain, &k);
+    let (header, mut chunks) = split_chunks(&blob);
+    let last = chunks.len() - 1;
+    // 伪造一个更短的末块：长度字段跟着改小，自身格式完全自洽。
+    let mut shorter = chunks[last].clone();
+    shorter.truncate(shorter.len() - 10);
+    let new_len = (shorter.len() - 4 - 16) as u32;
+    shorter[0..4].copy_from_slice(&new_len.to_be_bytes());
+    chunks[last] = shorter;
+    let err = decrypt_attachment(&reassemble(&header, &chunks), &k).expect_err("must refuse");
+    // 断言具体消息是为了钉住**是哪道防线**拦下的：逐块长度校验。
+    // 累计字节数校验（finish）是第二道，只验"拒绝"的话，第一道被改回上界检查也照样绿。
+    assert!(err.contains("must be"), "{err}");
+}
+
+/// 流式解密不能只数块数，累计明文字节数也要与头一致。
+#[test]
+fn a_complete_streaming_read_checks_the_total_byte_count() {
+    let k = key(7);
+    let plain: Vec<u8> = (0..(2 * SMALL as usize + 100)).map(|i| i as u8).collect();
+    let blob = seal_small(&plain, &k);
+    let (_, chunks) = split_chunks(&blob);
+    let mut opener = AttachmentOpener::new(&blob, &k).expect("opener");
+    let mut total = 0usize;
+    for c in &chunks {
+        total += opener.open_chunk(c).expect("chunk opens").len();
+    }
+    assert_eq!(total, plain.len());
+    opener.finish().expect("a complete object finishes clean");
+}
+
+/// 🔴 头在第一块解开之前是**未认证**的，但它的尺寸字段已经被用于预分配。
+/// 声明一个天文数字必须在那之前就被拒，否则一个来自对象存储的坏对象就能耗尽内存。
+#[test]
+fn an_absurd_declared_size_is_refused_before_any_allocation() {
+    let k = key(7);
+    let mut blob = seal_small(b"x", &k);
+    blob[36..44].copy_from_slice(&u64::MAX.to_be_bytes());
+    let err = AttachmentHeader::parse(&blob).expect_err("must refuse");
+    assert!(err.contains("larger than the format allows"), "{err}");
+    assert!(decrypt_attachment(&blob, &k).is_err());
+    // 边界不能只在"离谱的值"上成立。
+    assert!(chunk_count_for(MAX_PLAINTEXT_SIZE + 1, SMALL).is_err());
+    assert!(chunk_count_for(MAX_PLAINTEXT_SIZE, SMALL).is_ok());
+}
+
+/// 块大小同样要夹在上下限内：`chunk_plain_size=1` 会让块数等于文件字节数，
+/// 那是另一条不需要密钥就能触发的耗尽路径。
+#[test]
+fn an_out_of_range_chunk_size_is_refused() {
+    let k = key(7);
+    let mut blob = seal_small(b"x", &k);
+    blob[28..32].copy_from_slice(&1u32.to_be_bytes());
+    assert!(AttachmentHeader::parse(&blob).is_err());
+    assert!(chunk_count_for(1024, 1).is_err());
+    assert!(chunk_count_for(1024, u32::MAX).is_err());
+}
+
+/// 🔴 「是不是密文」由票据说了算，不由字节的 magic 说了算。
+///
+/// 服务端按文件行上的 `encryption_key_id` 决定发不发密钥——那才是权威信息。
+/// magic 只做交叉校验：两边对不上就必须失败，而不是各自猜一个。
+mod the_ticket_decides_whether_to_decrypt {
+    use super::*;
+
+    #[test]
+    fn a_plaintext_object_without_a_key_passes_through() {
+        assert_eq!(
+            open_downloaded_bytes(b"plain avatar bytes".to_vec(), None).unwrap(),
+            b"plain avatar bytes"
+        );
+    }
+
+    #[test]
+    fn an_encrypted_object_is_opened_with_the_ticket_key() {
+        use base64::Engine as _;
+        let k = key(9);
+        let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(k);
+        let blob = seal_small(b"secret", &k);
+        assert_eq!(open_downloaded_bytes(blob, Some(&encoded)).unwrap(), b"secret");
+    }
+
+    /// 票据说有密钥而对象是明文：多半是服务端把两份记录搞混了。
+    /// 拿密钥去解只会得到一句语焉不详的认证失败，不如当场说清楚。
+    #[test]
+    fn a_key_with_a_plaintext_object_is_an_error() {
+        let err = open_downloaded_bytes(b"not a blob".to_vec(), Some("AAAA")).expect_err("refuse");
+        assert!(err.contains("not an attachment blob"), "{err}");
+    }
+
+    /// 票据说没密钥而对象是密文：服务端漏发了密钥。原样交出去就会写进缓存、
+    /// UI 渲染坏图，真正的错误反而被藏起来。
+    #[test]
+    fn an_encrypted_object_without_a_key_is_an_error() {
+        let blob = seal_small(b"secret", &key(9));
+        let err = open_downloaded_bytes(blob, None).expect_err("refuse");
+        assert!(err.contains("carries no key"), "{err}");
+    }
 }

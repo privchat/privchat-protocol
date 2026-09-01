@@ -56,10 +56,27 @@ pub const DEFAULT_CHUNK_PLAIN_SIZE: u32 = 1024 * 1024;
 
 const HKDF_INFO: &[u8] = b"privchat-attachment-object-v1";
 
+/// 头部是**受认证**的，但认证要等到解开第一块才发生——而 `plaintext_size` /
+/// `chunk_plain_size` 在那之前就被读出来用于预分配和循环控制。
+///
+/// 🔴 所以解析必须先把它们夹在硬上限里。桶里的对象来自外部：一个声明
+/// `plaintext_size = u64::MAX` 的头，在任何一次认证发生之前就能让解密方
+/// `with_capacity` 掉整台机器。
+pub const MAX_PLAINTEXT_SIZE: u64 = 16 * 1024 * 1024 * 1024;
+pub const MIN_CHUNK_PLAIN_SIZE: u32 = 4 * 1024;
+pub const MAX_CHUNK_PLAIN_SIZE: u32 = 64 * 1024 * 1024;
+
 /// 空明文也算一块（长度为 0），这样块数与偏移的换算不必到处特判。
 pub fn chunk_count_for(plaintext_len: u64, chunk_plain_size: u32) -> Result<u32, String> {
-    if chunk_plain_size == 0 {
-        return Err("chunk_plain_size must not be zero".to_string());
+    if !(MIN_CHUNK_PLAIN_SIZE..=MAX_CHUNK_PLAIN_SIZE).contains(&chunk_plain_size) {
+        return Err(format!(
+            "chunk_plain_size must be within {MIN_CHUNK_PLAIN_SIZE}..={MAX_CHUNK_PLAIN_SIZE}, got {chunk_plain_size}"
+        ));
+    }
+    if plaintext_len > MAX_PLAINTEXT_SIZE {
+        return Err(format!(
+            "attachment is larger than the format allows: {plaintext_len} > {MAX_PLAINTEXT_SIZE}"
+        ));
     }
     let per = chunk_plain_size as u64;
     let count = plaintext_len.div_ceil(per).max(1);
@@ -73,6 +90,20 @@ pub fn chunk_count_for(plaintext_len: u64, chunk_plain_size: u32) -> Result<u32,
 pub fn sealed_len(plaintext_len: u64, chunk_plain_size: u32) -> Result<u64, String> {
     let chunks = chunk_count_for(plaintext_len, chunk_plain_size)? as u64;
     Ok(HEADER_LEN as u64 + chunks * CHUNK_OVERHEAD as u64 + plaintext_len)
+}
+
+/// 第 `index` 块**必须**有多长。
+///
+/// 🔴 末块的长度同样是确定的（`plaintext_size` 与 `chunk_plain_size` 都在受认证的
+/// 头里），不是「不超过块大小即可」。只校验上界的话，攻击者可以拿一个认证合法但
+/// 短了的末块换掉真末块：每块都验得过、块数也对，调用方拿到的却是一份被截短的文件。
+pub fn expected_chunk_len(header: &AttachmentHeader, index: u32) -> Result<u32, String> {
+    if index >= header.chunk_count {
+        return Err(format!("chunk index {index} is out of range"));
+    }
+    let consumed = (index as u64) * (header.chunk_plain_size as u64);
+    let remaining = header.plaintext_size.saturating_sub(consumed);
+    Ok(u32::try_from(remaining.min(header.chunk_plain_size as u64)).expect("bounded by chunk size"))
 }
 
 /// 受认证的文件头。它的所有字段都进每一块的 AAD，改任何一个字节都会让全部块解不开。
@@ -136,6 +167,8 @@ impl AttachmentHeader {
         };
         // 头自洽性先于解密检查：块数和总长必须互相印证，否则截断攻击要等到
         // 最后一块缺失才暴露，而那时调用方可能已经把前面的明文交出去了。
+        // `chunk_count_for` 同时把两个字段夹进硬上限——这是在任何认证发生之前
+        // 唯一挡得住「声明一个天文数字尺寸」的地方。
         let expected = chunk_count_for(header.plaintext_size, header.chunk_plain_size)?;
         if expected != header.chunk_count {
             return Err(format!(
@@ -239,18 +272,14 @@ impl AttachmentSealer {
         if index >= self.header.chunk_count {
             return Err("attachment already has all declared chunks".to_string());
         }
-        let is_last = index + 1 == self.header.chunk_count;
-        if !is_last && plaintext.len() != self.header.chunk_plain_size as usize {
+        let expected = expected_chunk_len(&self.header, index)?;
+        if plaintext.len() != expected as usize {
             return Err(format!(
-                "chunk {index} must be exactly {} bytes, got {}",
-                self.header.chunk_plain_size,
+                "chunk {index} must be exactly {expected} bytes, got {}",
                 plaintext.len()
             ));
         }
-        if plaintext.len() > self.header.chunk_plain_size as usize {
-            return Err("chunk exceeds the declared chunk size".to_string());
-        }
-        let plaintext_len = plaintext.len() as u32;
+        let plaintext_len = expected;
         let aad = chunk_aad(&self.header_digest, index, plaintext_len);
         let sealed = self
             .cipher
@@ -282,6 +311,7 @@ pub struct AttachmentOpener {
     header_digest: [u8; 32],
     cipher: Aes256Gcm,
     next_index: u32,
+    opened_plaintext: u64,
 }
 
 impl AttachmentOpener {
@@ -293,6 +323,7 @@ impl AttachmentOpener {
             header_digest: header.digest(),
             cipher: Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&object_key)),
             next_index: 0,
+            opened_plaintext: 0,
         })
     }
 
@@ -312,8 +343,13 @@ impl AttachmentOpener {
             return Err(format!("attachment chunk {index} is truncated"));
         }
         let plaintext_len = u32::from_be_bytes(sealed[0..4].try_into().expect("4 bytes"));
-        if plaintext_len > self.header.chunk_plain_size {
-            return Err(format!("attachment chunk {index} declares an oversized length"));
+        // 🔴 每块该有多长是从受认证的头**算出来**的，不是从这一块自己声明的字段读来的。
+        // 读来的值只用于比对；拿它决定"允许多长"就等于让被检查的一方来定检查标准。
+        let expected = expected_chunk_len(&self.header, index)?;
+        if plaintext_len != expected {
+            return Err(format!(
+                "attachment chunk {index} must be {expected} bytes, declares {plaintext_len}"
+            ));
         }
         if sealed.len() != CHUNK_OVERHEAD + plaintext_len as usize {
             return Err(format!("attachment chunk {index} has a mismatched length"));
@@ -331,6 +367,7 @@ impl AttachmentOpener {
             .map_err(|_| "attachment decrypt/auth failed".to_string())?;
 
         self.next_index += 1;
+        self.opened_plaintext += plaintext.len() as u64;
         Ok(plaintext)
     }
 
@@ -341,6 +378,14 @@ impl AttachmentOpener {
             return Err(format!(
                 "attachment is truncated: {} of {} chunks",
                 self.next_index, self.header.chunk_count
+            ));
+        }
+        // 块数对得上而字节数对不上，意味着某一块的长度校验被绕过了。
+        // 这时候宁可整份判失败，也不要交出一份长度不对的文件。
+        if self.opened_plaintext != self.header.plaintext_size {
+            return Err(format!(
+                "attachment length does not match its header: {} of {} bytes",
+                self.opened_plaintext, self.header.plaintext_size
             ));
         }
         Ok(())
@@ -383,7 +428,10 @@ pub fn encrypt_attachment_with_chunk_size(
 pub fn decrypt_attachment(blob: &[u8], site_key: &[u8]) -> Result<Vec<u8>, String> {
     let mut opener = AttachmentOpener::new(blob, site_key)?;
     let header = opener.header();
-    let mut out = Vec::with_capacity(header.plaintext_size as usize);
+    // 🔴 按**实际拿到的字节数**预分配，不按头里声明的尺寸。头虽然受认证，但认证要
+    // 等到解开第一块才发生；在那之前拿它去 `with_capacity`，就是让一个来自对象存储、
+    // 尚未验过的数字决定分配多少内存。明文不可能比密文长。
+    let mut out = Vec::with_capacity(header.plaintext_size.min(blob.len() as u64) as usize);
     let mut rest = &blob[HEADER_LEN..];
     for _ in 0..header.chunk_count {
         if rest.len() < 4 {
@@ -400,10 +448,8 @@ pub fn decrypt_attachment(blob: &[u8], site_key: &[u8]) -> Result<Vec<u8>, Strin
     if !rest.is_empty() {
         return Err("attachment has trailing bytes after its last chunk".to_string());
     }
+    // finish 已经核过块数与累计字节数。
     opener.finish()?;
-    if out.len() as u64 != header.plaintext_size {
-        return Err("attachment length does not match its header".to_string());
-    }
     Ok(out)
 }
 
@@ -440,17 +486,29 @@ pub fn looks_like_attachment(bytes: &[u8]) -> bool {
 
 /// 下载到的字节 → 明文。
 ///
-/// 明文对象（`business_type=PUBLIC` 的头像等）原样返回；密文对象必须有密钥，
-/// 🔴 **没有就报错，绝不把密文当内容交出去**——那会写进缓存、UI 渲染坏图，
-/// 真正的错误反而被藏起来。
+/// 🔴 **分流由票据说了算，不由字节的 magic 说了算。** 服务端按文件行上的
+/// `encryption_key_id` 决定发不发密钥，那是权威信息；magic 只是一段可以被构造出来的
+/// 前缀——一个恰好以 `PC\x01` 开头、后续字段又碰巧自洽的公开文件会被误判成密文。
+///
+/// magic 在这里只做**交叉校验**：票据和对象对不上时必须失败。不能把密文当内容交出去
+/// （写进缓存、UI 渲染坏图，真正的错误反而被藏起来），也不能拿密钥去解一份明文
+/// （那只会得到一句语焉不详的认证失败）。
 pub fn open_downloaded_bytes(bytes: Vec<u8>, site_key: Option<&str>) -> Result<Vec<u8>, String> {
-    if !looks_like_attachment(&bytes) {
-        return Ok(bytes);
+    match site_key {
+        Some(encoded) => {
+            if !looks_like_attachment(&bytes) {
+                return Err(
+                    "download ticket carries a key but the object is not an attachment blob"
+                        .to_string(),
+                );
+            }
+            decrypt_attachment(&bytes, &decode_site_key(encoded)?)
+        }
+        None if looks_like_attachment(&bytes) => {
+            Err("object looks encrypted but the download ticket carries no key".to_string())
+        }
+        None => Ok(bytes),
     }
-    let encoded = site_key.ok_or_else(|| {
-        "attachment is encrypted but the download ticket carries no key".to_string()
-    })?;
-    decrypt_attachment(&bytes, &decode_site_key(encoded)?)
 }
 
 // 单测见 tests/attachment_crypto_test.rs（集成测试，绕开 lib 内不相关的 test fixture）。
