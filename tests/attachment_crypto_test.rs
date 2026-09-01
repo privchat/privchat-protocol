@@ -291,14 +291,18 @@ fn a_last_chunk_shorter_than_the_header_implies_is_rejected() {
     shorter[0..4].copy_from_slice(&new_len.to_be_bytes());
     chunks[last] = shorter;
     let err = decrypt_attachment(&reassemble(&header, &chunks), &k).expect_err("must refuse");
-    // 断言具体消息是为了钉住**是哪道防线**拦下的：逐块长度校验。
-    // 累计字节数校验（finish）是第二道，只验"拒绝"的话，第一道被改回上界检查也照样绿。
+    // 断言具体消息是为了钉住**是哪道防线**拦下的：逐块长度校验。只断言"被拒绝"的话，
+    // 第一道被改回上界检查、改由 finish 的累计检查兜底时，这条测试照样绿。
     assert!(err.contains("must be"), "{err}");
 }
 
-/// 流式解密不能只数块数，累计明文字节数也要与头一致。
+/// 完整读完一份对象必须能干净收尾。
+///
+/// `finish()` 里还有一道累计字节数校验，但它是**纵深防御**：每块长度都由 header 钉死，
+/// 累计必然等于 `plaintext_size`，所以在当前实现下它触发不了，也就没有对应的负例。
+/// 它防的是将来有人把逐块检查改弱。这条测试只证明正常路径不会被它误伤。
 #[test]
-fn a_complete_streaming_read_checks_the_total_byte_count() {
+fn a_complete_streaming_read_finishes_clean() {
     let k = key(7);
     let plain: Vec<u8> = (0..(2 * SMALL as usize + 100)).map(|i| i as u8).collect();
     let blob = seal_small(&plain, &k);

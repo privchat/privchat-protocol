@@ -383,8 +383,12 @@ impl AttachmentOpener {
                 self.next_index, self.header.chunk_count
             ));
         }
-        // 块数对得上而字节数对不上，意味着某一块的长度校验被绕过了。
-        // 这时候宁可整份判失败，也不要交出一份长度不对的文件。
+        // 纵深防御，不是第一道防线。
+        //
+        // 当前实现里这条**触发不了**：每块的长度都由 `expected_chunk_len` 钉死，
+        // 累计必然等于 `plaintext_size`。它防的是将来有人把逐块检查改弱（比如改回
+        // "不超过块大小即可"）——那时候这里会兜住，而不是让调用方拿到一份短了的文件。
+        // 正因为触发不了，它也没有对应的负例测试；别据此以为它没被验证过。
         if self.opened_plaintext != self.header.plaintext_size {
             return Err(format!(
                 "attachment length does not match its header: {} of {} bytes",
