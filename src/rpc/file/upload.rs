@@ -111,8 +111,8 @@ pub struct FileRequestUploadTokenResponse {
     /// 本次上传该用的全站加密密钥（v2）。
     ///
     /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
-    /// `None` = 服务端未启用 v2，客户端沿用 v1 的 per-file 随机 CEK。
-    #[serde(default)]
+    /// `None` = 服务端没有配置附件密钥，这个对象以明文存储。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
 }
 
@@ -204,8 +204,8 @@ pub struct FileRequestChunkedUploadTokenResponse {
     /// 本次上传该用的全站加密密钥（v2）。
     ///
     /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
-    /// `None` = 服务端未启用 v2，客户端沿用 v1 的 per-file 随机 CEK。
-    #[serde(default)]
+    /// `None` = 服务端没有配置附件密钥，这个对象以明文存储。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
 }
 
@@ -261,20 +261,12 @@ pub struct FileGetUrlResponse {
     /// 不进消息 typed metadata）。缺省=空串。
     #[serde(default)]
     pub original_filename: String,
-    /// 附件加密版本：0=明文 legacy；1=AES-256-GCM（客户端解密）。缺省=0。
-    #[serde(default)]
-    pub encryption_version: i32,
-    /// CEK（base64url 32B）；nonce 在密文 blob 头部。version=0 时 None。绝不进 URL/日志。
-    ///
-    /// 仅 `encryption_version=1`（历史 per-file 密钥）使用；v2 走 [`attachment_keys`]。
-    #[serde(default)]
-    pub cek: Option<String>,
     /// v2：解开**这一个**附件所需的密钥。
     ///
     /// 🔴 只给这个文件用的那把，不给全量密钥表——服务端按文件行上记录的
     /// `encryption_key_id` 取出对应密钥。下发全量意味着任何拿到一个附件的人
     /// 就获得了全部历史对象的解密能力。
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
     /// 服务端对**已存储字节**算出的 SHA-256。
     ///
@@ -324,6 +316,22 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&response).unwrap(),
             r#"{"already_exists":false,"upload_token":"u.s","upload_url":"http://x/files","base_unit":65536,"expires_at":100}"#
+        );
+
+        // 不下发密钥时字段整个不出现；但一旦有密钥就必须落到线上——
+        // `skip_serializing_if` 写错的话客户端拿不到密钥，而上面那条断言照样过。
+        let with_key = FileRequestChunkedUploadTokenResponse {
+            already_exists: false,
+            upload_token: Some("u.s".to_string()),
+            attachment_key: Some(AttachmentKey {
+                key_id: 3,
+                key: "k".to_string(),
+            }),
+            ..Default::default()
+        };
+        assert_eq!(
+            serde_json::to_string(&with_key).unwrap(),
+            r#"{"already_exists":false,"upload_token":"u.s","attachment_key":{"key_id":3,"key":"k"}}"#
         );
 
         // 秒传命中的旧响应：逐字节 fixture。

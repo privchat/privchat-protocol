@@ -69,8 +69,8 @@ pub struct ImageMetadata {
     pub width: u32,
     #[serde(default)]
     pub height: u32,
-    /// 缩略图独立 file_id（0/None=无）。接收端走 `thumbnail_file_id -> file/get_url -> cek`
-    /// 下载解密，与主文件同一流程。CEK 不进 metadata。
+    /// 缩略图独立 file_id（0/None=无）。接收端走 `thumbnail_file_id -> file/get_url -> attachment_key`
+    /// 下载解密，与主文件同一流程。密钥不进 metadata。
     #[serde(default, deserialize_with = "file_id_compat::optional")]
     pub thumbnail_file_id: Option<u64>,
     /// legacy 明文缩略图 url；v1 加密附件无此字段，仅历史明文 fallback。
@@ -82,7 +82,7 @@ pub struct ImageMetadata {
 }
 
 /// 文件展示语义随协议传输：file_id + file_name + size + mime 构成完整文件引用，
-/// 离线/历史/搜索/转发/通知都直接用；下载仍走 file_id -> file/get_url -> cek。CEK 不进 metadata。
+/// 离线/历史/搜索/转发/通知都直接用；下载仍走 file_id -> file/get_url -> attachment_key。密钥不进 metadata。
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct FileMetadata {
     #[serde(deserialize_with = "file_id_compat::required")]
@@ -120,7 +120,7 @@ pub struct VideoMetadata {
     pub thumbnail_file_id: Option<u64>,
     pub thumbnail_width: Option<u32>,
     pub thumbnail_height: Option<u32>,
-    /// legacy 明文缩略图 url；v1 加密走 thumbnail_file_id -> file/get_url -> cek。
+    /// 未加密部署的缩略图 url；加密时走 thumbnail_file_id -> file/get_url -> attachment_key。
     #[serde(default)]
     pub thumbnail_url: Option<String>,
     /// 原文件名（作为文件发送时展示用）。

@@ -96,6 +96,7 @@ pub mod fb {
     pub use crate::transfer_generated::privchat::protocol::*;
 }
 
+pub mod attachment_crypto;
 pub mod codec;
 pub mod error;
 pub mod error_code;
