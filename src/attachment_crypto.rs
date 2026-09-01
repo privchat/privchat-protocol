@@ -11,33 +11,29 @@
 //! 🔴 准确的措辞是「明文不持久化」，不是「明文永远不出客户端」：首传校验期间明文会
 //! 短暂进入服务端内存。混着写会让人据此做出错误的安全承诺。这**不是** E2EE。
 //!
-//! 冻结设计见 `ATTACHMENT_ENCRYPTION_SPEC`。三条要点：
+//! 冻结设计见 `ATTACHMENT_ENCRYPTION_SPEC`。两条要点：
 //!
-//! - **分块**：整文件单个 tag 意味着服务端校验一份 500MB 视频得先缓冲整份。
-//!   分块之后可以边读边验。
-//! - **每块 AAD 绑 `SHA256(header) || chunk_index || plaintext_len`**：
-//!   🔴 独立 tag 只能证明某块没被改，证明不了它属于这个文件、在这个位置。
-//!   绑上之后乱序、跨对象替换、截断全部变成认证失败。
-//! - **按对象派生密钥**：全站密钥直接用会让所有对象共享一个 nonce 空间，规模上来后
-//!   碰撞风险是全站级的。HKDF 到每个对象之后，nonce 收敛到单对象内，可以安全地
-//!   由块序号派生。
+//! - **一把全站密钥 + 每个对象随机 nonce 前缀**。同一份明文两次封装产出不同密文，
+//!   这没关系：跨用户秒传按**明文摘要**判重，第二个人根本不上传字节。
+//! - **分块，每块 AAD 绑 `SHA256(header) || chunk_index || plaintext_len`**。
+//!   分块是为了让服务端能边读边验（整文件单个 tag 要先缓冲完 500MB 视频才能判断）；
+//!   AAD 绑定是因为🔴 独立 tag 只能证明某块没被改，证明不了它属于这个文件、
+//!   在这个位置——绑上之后乱序、跨对象嫁接、截断全部变成认证失败。
 //!
 //! **密钥绝不进日志。**
 
 use aes_gcm::aead::{Aead, KeyInit, Payload};
 use aes_gcm::{Aes256Gcm, Key, Nonce};
-use hkdf::Hkdf;
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 
 pub const KEY_LEN: usize = 32;
 pub const TAG_LEN: usize = 16;
-pub const SALT_LEN: usize = 16;
 pub const NONCE_PREFIX_LEN: usize = 8;
 
-/// `magic(2) || format_version(1) || key_id(1) || salt(16) || nonce_prefix(8)
+/// `magic(2) || format_version(1) || key_id(1) || nonce_prefix(8)
 ///  || chunk_plain_size(4) || chunk_count(4) || plaintext_size(8)`
-pub const HEADER_LEN: usize = 44;
+pub const HEADER_LEN: usize = 28;
 
 /// 每块的定长开销：`plaintext_len(4) || ... || tag(16)`。
 const CHUNK_OVERHEAD: usize = 4 + TAG_LEN;
@@ -56,8 +52,6 @@ pub const FORMAT_VERSION: u8 = 1;
 /// 服务端会把实际值冻进上传 token，客户端不得自选——否则同一份明文因分块不同产出
 /// 不同长度的密文，token 里签的 `sealed_size` 就对不上。
 pub const DEFAULT_CHUNK_PLAIN_SIZE: u32 = 1024 * 1024;
-
-const HKDF_INFO: &[u8] = b"privchat-attachment-object-v1";
 
 /// 头部是**受认证**的，但认证要等到解开第一块才发生——而 `plaintext_size` /
 /// `chunk_plain_size` 在那之前就被读出来用于预分配和循环控制。
@@ -113,14 +107,17 @@ pub fn expected_chunk_len(header: &AttachmentHeader, index: u32) -> Result<u32, 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct AttachmentHeader {
     pub encryption_key_id: u8,
-    pub object_salt: [u8; SALT_LEN],
+    /// 每个对象随机。nonce = `nonce_prefix || uint32_be(chunk_index)`。
+    ///
+    /// 🔴 随机的原因是 AES-GCM 在同一密钥下重用 nonce 会直接崩（泄露明文异或、可伪造）。
+    /// 8 字节随机前缀把全站单密钥下的碰撞概率压到可忽略。
     pub nonce_prefix: [u8; NONCE_PREFIX_LEN],
     pub chunk_plain_size: u32,
     pub chunk_count: u32,
     pub plaintext_size: u64,
 }
 
-/// 🔴 手写 Debug：盐和 nonce 前缀不是秘密，但结构体将来可能加字段，
+/// 🔴 手写 Debug：nonce 前缀不是秘密，但结构体将来可能加字段，
 /// derive 会把新字段自动带进日志。这里只渲染排障真正需要的东西。
 impl std::fmt::Debug for AttachmentHeader {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -139,11 +136,10 @@ impl AttachmentHeader {
         out[0..2].copy_from_slice(&MAGIC);
         out[2] = FORMAT_VERSION;
         out[3] = self.encryption_key_id;
-        out[4..20].copy_from_slice(&self.object_salt);
-        out[20..28].copy_from_slice(&self.nonce_prefix);
-        out[28..32].copy_from_slice(&self.chunk_plain_size.to_be_bytes());
-        out[32..36].copy_from_slice(&self.chunk_count.to_be_bytes());
-        out[36..44].copy_from_slice(&self.plaintext_size.to_be_bytes());
+        out[4..12].copy_from_slice(&self.nonce_prefix);
+        out[12..16].copy_from_slice(&self.chunk_plain_size.to_be_bytes());
+        out[16..20].copy_from_slice(&self.chunk_count.to_be_bytes());
+        out[20..28].copy_from_slice(&self.plaintext_size.to_be_bytes());
         out
     }
 
@@ -162,11 +158,10 @@ impl AttachmentHeader {
         }
         let header = Self {
             encryption_key_id: bytes[3],
-            object_salt: bytes[4..20].try_into().expect("16 bytes"),
-            nonce_prefix: bytes[20..28].try_into().expect("8 bytes"),
-            chunk_plain_size: u32::from_be_bytes(bytes[28..32].try_into().expect("4 bytes")),
-            chunk_count: u32::from_be_bytes(bytes[32..36].try_into().expect("4 bytes")),
-            plaintext_size: u64::from_be_bytes(bytes[36..44].try_into().expect("8 bytes")),
+            nonce_prefix: bytes[4..12].try_into().expect("8 bytes"),
+            chunk_plain_size: u32::from_be_bytes(bytes[12..16].try_into().expect("4 bytes")),
+            chunk_count: u32::from_be_bytes(bytes[16..20].try_into().expect("4 bytes")),
+            plaintext_size: u64::from_be_bytes(bytes[20..28].try_into().expect("8 bytes")),
         };
         // 头自洽性先于解密检查：块数和总长必须互相印证，否则截断攻击要等到
         // 最后一块缺失才暴露，而那时调用方可能已经把前面的明文交出去了。
@@ -192,19 +187,11 @@ pub fn key_id_of(blob: &[u8]) -> Option<u8> {
     AttachmentHeader::parse(blob).ok().map(|h| h.encryption_key_id)
 }
 
-/// 按对象派生密钥。同一把站点密钥下，不同 salt 得到互不相关的对象密钥。
-fn derive_object_key(site_key: &[u8], salt: &[u8; SALT_LEN]) -> Result<[u8; KEY_LEN], String> {
+fn check_key(site_key: &[u8]) -> Result<(), String> {
     if site_key.len() != KEY_LEN {
-        return Err(format!(
-            "key must be {KEY_LEN} bytes, got {}",
-            site_key.len()
-        ));
+        return Err(format!("key must be {KEY_LEN} bytes, got {}", site_key.len()));
     }
-    let mut out = [0u8; KEY_LEN];
-    Hkdf::<Sha256>::new(Some(salt), site_key)
-        .expand(HKDF_INFO, &mut out)
-        .map_err(|_| "attachment key derivation failed".to_string())?;
-    Ok(out)
+    Ok(())
 }
 
 fn chunk_nonce(prefix: &[u8; NONCE_PREFIX_LEN], index: u32) -> [u8; 12] {
@@ -238,24 +225,21 @@ impl AttachmentSealer {
         plaintext_size: u64,
         chunk_plain_size: u32,
     ) -> Result<Self, String> {
-        let mut object_salt = [0u8; SALT_LEN];
+        check_key(site_key)?;
         let mut nonce_prefix = [0u8; NONCE_PREFIX_LEN];
-        rand::thread_rng().fill_bytes(&mut object_salt);
         rand::thread_rng().fill_bytes(&mut nonce_prefix);
 
         let header = AttachmentHeader {
             encryption_key_id: key_id,
-            object_salt,
             nonce_prefix,
             chunk_plain_size,
             chunk_count: chunk_count_for(plaintext_size, chunk_plain_size)?,
             plaintext_size,
         };
-        let object_key = derive_object_key(site_key, &object_salt)?;
         Ok(Self {
             header,
             header_digest: header.digest(),
-            cipher: Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&object_key)),
+            cipher: Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(site_key)),
             next_index: 0,
         })
     }
@@ -320,11 +304,11 @@ pub struct AttachmentOpener {
 impl AttachmentOpener {
     pub fn new(header_bytes: &[u8], site_key: &[u8]) -> Result<Self, String> {
         let header = AttachmentHeader::parse(header_bytes)?;
-        let object_key = derive_object_key(site_key, &header.object_salt)?;
+        check_key(site_key)?;
         Ok(Self {
             header,
             header_digest: header.digest(),
-            cipher: Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&object_key)),
+            cipher: Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(site_key)),
             next_index: 0,
             opened_plaintext: 0,
         })

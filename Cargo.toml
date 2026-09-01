@@ -19,7 +19,6 @@ thiserror = "1.0"
 # 附件密文格式（attachment_crypto）。放在 protocol 里是因为客户端封、服务端在首传时
 # 验，两边必须是同一份实现——各写一份就等于把线上格式交给两处独立演进。
 aes-gcm = "0.10"
-hkdf = "0.12"
 sha2 = "0.10"
 rand = "0.8"
 
