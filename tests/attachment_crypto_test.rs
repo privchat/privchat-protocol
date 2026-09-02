@@ -83,16 +83,16 @@ fn the_ciphertext_reveals_nothing_of_the_plaintext() {
     }
 }
 
-/// 同一份明文两次加密必须产出不同密文：salt 与 nonce_prefix 都是随机的。
+/// 同一份明文两次加密必须产出不同密文：每块的 nonce 和对象标识都是随机的。
 ///
-/// 秒传**不**依赖密文相同——第二个人根本不上传（服务端按 dedup_id 命中就直接建引用），
+/// 秒传**不**依赖密文相同——第二个人根本不上传（服务端按明文摘要命中就直接建引用），
 /// 所以密文的不确定性和秒传并不冲突。
 #[test]
 fn the_same_plaintext_never_produces_the_same_ciphertext() {
     let k = key(7);
     let a = seal_small(b"identical bytes", &k);
     let b = seal_small(b"identical bytes", &k);
-    assert_ne!(a, b, "每个对象必须有自己的 salt 与 nonce 前缀");
+    assert_ne!(a, b, "每块的 nonce 与每个对象的标识都必须是随机的");
     assert_eq!(decrypt_attachment(&a, &k).unwrap(), b"identical bytes");
     assert_eq!(decrypt_attachment(&b, &k).unwrap(), b"identical bytes");
 }
@@ -125,8 +125,11 @@ fn reordering_chunks_is_rejected() {
     assert!(decrypt_attachment(&reassemble(&header, &chunks), &k).is_err());
 }
 
-/// 🔴 跨对象替换必须被拒。两份文件用同一把站点密钥，但 salt 不同 → header 摘要不同
-/// → AAD 不同。没有这条绑定，A 的块可以嫁接进 B。
+/// 🔴 跨对象替换必须被拒。两份文件用同一把全站密钥，尺寸也可能完全一样——挡住它的是
+/// header 里那个随机 `object_id`：它进 header 摘要、header 摘要进每块 AAD。
+///
+/// 这条测试抓到过一次真实回归：去掉对象标识之后，两份等长文件的 header 逐字节相同，
+/// 于是 A 的第 i 块可以嫁接进 B 而认证照样通过。
 #[test]
 fn substituting_a_chunk_from_another_object_is_rejected() {
     let k = key(7);

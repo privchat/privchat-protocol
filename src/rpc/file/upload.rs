@@ -28,38 +28,33 @@ pub struct FileRequestUploadTokenRequest {
     /// 文件名
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    /// **最终待上传 blob** 的字节数（加密后的长度，不是明文长度）。
+    /// **明文**字节数（压缩/转码之后、加密之前的那份内容的长度）。
     ///
-    /// 与 `sha256` 同一口径：服务端按收到的字节数入库并比对。
-    pub file_size: i64,
+    /// 🔴 不是密文长度。密文长度由服务端按
+    /// `sealed_len(plaintext_size, chunk_plain_size)` 算出来并签进 token——客户端
+    /// 算不出它，因为分块几何是服务端冻结的。
+    pub plaintext_size: i64,
     /// 文件MIME类型
     pub mime_type: String,
     /// 文件类型 (image/video/audio/file/other)
     pub file_type: String,
     /// 业务类型 (message/avatar/group_avatar等)
     pub business_type: String,
-    /// **最终待上传 blob** 的 SHA-256（十六进制，64 字符）。
+    /// **明文**的 SHA-256（十六进制，64 字符）：压缩/转码之后、**加密之前**。
     ///
-    /// 「最终待上传 blob」= 压缩/转码之后、**并且已经加密之后**，真正要发给服务端的
-    /// 那串字节。去重的单位就是它：服务端不理解加密，只比对收到的字节。
+    /// 🔴 这是跨用户秒传的**唯一**判重键，而且必须是明文摘要。
     ///
-    /// 由此推出两条客户端硬约束：
-    ///   · 预检之后**不能重新加密**——随机 CEK/nonce 会产出另一串字节，
-    ///     本来也不该命中；必须上传当初参与哈希的那个 blob。
-    ///   · 重试同样要复用同一个 blob（连同它的 CEK 和 nonce），否则每次重试
-    ///     都变成一个新的物理文件。
+    /// 密文摘要不行：全站密钥 + 每块随机 nonce，同一份明文每次封装都产出不同的
+    /// 密文——按密文判重等于秒传只对"自己重发自己"生效，而秒传的收益几乎全在
+    /// "别人已经传过"。
     ///
-    /// 所以「同一明文加密两次」是**两个**物理文件，这是预期行为，不是缺陷。
+    /// 🔴 申请 token 时**不提交任何密文摘要**。此刻客户端还没拿到服务端下发的
+    /// 全站密钥，封装不出最终字节，也就无从算起；服务端会在 complete 时流式回读、
+    /// 解密重算，那才是权威判据。
     ///
-    /// 不带这个字段 = 老客户端，照常走完整上传。
+    /// 不带这个字段 = 不参与秒传预检，照常走完整上传。
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub sha256: Option<String>,
-    /// 产出这份字节的客户端处理版本；0 / 缺省 = 原始未处理。
-    ///
-    /// 仅作元数据，**不参与**秒传判定：身份只看内容摘要。字节不同摘要自然不同，
-    /// 字节相同就该复用——因为压缩器版本号不同而重复存一份，是白占存储。
-    #[serde(default)]
-    pub transform_version: i32,
+    pub plaintext_sha256: Option<String>,
 }
 
 /// 上传回调请求
@@ -89,7 +84,7 @@ pub struct FileRequestUploadTokenResponse {
     /// 服务端已经有这份内容：**不必上传字节**。
     ///
     /// 🔴 这只是**告知**，本次调用不产生任何句柄。要拿到自己的 `file_id`，
-    /// 带这个 token 和 sha256 去调 `file/claim_existing`。
+    /// 带这个 token 和明文摘要去调 `file/claim_existing`。
     ///
     /// 探测与取得所有权必须分开：探测会被重试，合在一起的话每重试一次
     /// 就多给调用方一份文件记录，攒出一堆没有任何消息使用的孤儿句柄。
@@ -108,12 +103,37 @@ pub struct FileRequestUploadTokenResponse {
     /// 每一个分片请求——客户端拿到的这份只是**同一件事的可读副本**，不是另一个真源。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub upload_plan: Option<UploadPlanDto>,
-    /// 本次上传该用的全站加密密钥（v2）。
+    /// 本次上传该用的全站加密密钥（`attachment_crypto::FORMAT_VERSION` 当前口径）。
     ///
-    /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
-    /// `None` = 服务端没有配置附件密钥，这个对象以明文存储。
+    /// 客户端用它加密后再上传：**桶里只存密文**。
+    ///
+    /// 🔴 但服务端不是"自始至终只见密文"：complete 时它会回读并解密，重算明文摘要
+    /// 来核对 token 冻结的身份（跨用户秒传的判重键就是明文摘要）。解密只在校验那一趟，
+    /// 明文不落盘。
+    ///
+    /// 🔴 这把是**全站**密钥，不是 per-file key：同 key_id 的对象共用它。文件级的
+    /// 访问隔离来自私有桶、短期 URL 与 `file/get_url` 的鉴权，不来自密钥本身。
+    ///
+    /// 🔴 **不存在"没有密钥就明文存储"这条路。** 服务端没有配置附件密钥时，
+    /// 签发直接失败（`freeze_crypto` fail-closed）——"没配就当明文"是 fail-open：
+    /// 一次配置遗漏会让全部新附件明文进桶，而桶里看起来一切正常。
+    /// 所以走到客户端手上的响应必然带着密钥，`None` 只出现在不需要加密的旧路径上。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
+    /// 服务端冻结的**分块几何**：客户端必须**原样**用它封装。
+    ///
+    /// 🔴 客户端不能自选。同一份明文按不同块大小封装，密文长度不同、每块边界也不同——
+    /// 而 token 里冻结的密文长度是按服务端这个值算的，用别的值封出来的对象在
+    /// complete 的长度核对上必然被拒。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chunk_plain_size: Option<u32>,
+    /// 封装之后的**密文**总字节数 = `sealed_len(plaintext_size, chunk_plain_size)`。
+    ///
+    /// 🔴 这是真正要传的字节数，也是分片几何/区间网格的基准。客户端自己算不出它
+    /// （块大小是服务端定的），所以由服务端下发；上传前用它核对一下自己封出来的
+    /// 长度，对不上就是两边几何不一致，早失败好过传完再被拒。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_size: Option<u64>,
 }
 
 /// 分片方案（与服务端 `UploadPlan` 同构）。
@@ -143,15 +163,17 @@ pub struct FileRequestChunkedUploadTokenRequest {
     pub file_type: String,
     /// 业务类型 (message/avatar/...)。整包路径里它来自 token，这里同样在申请时冻结。
     pub business_type: String,
-    /// **封装后**字节数。
-    pub file_size: i64,
-    /// **封装后** SHA-256（十六进制 64 字符）。分片路径**必带**：complete 靠它核验。
-    pub file_hash: String,
+    /// **明文**字节数。口径同整包，见 [`FileRequestUploadTokenRequest::plaintext_size`]。
+    ///
+    /// 🔴 分片几何（`part_size` / `total_parts` / 区间网格）全部按服务端算出的
+    /// **密文**长度来定，不按这个值——响应里的 `total_size` 才是要传的字节数。
+    pub plaintext_size: i64,
+    /// **明文** SHA-256（十六进制 64 字符）。分片路径必带：它是秒传判重键，
+    /// 也是 complete 解密重算之后要核对的身份。
+    pub plaintext_sha256: String,
     pub mime_type: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub filename: Option<String>,
-    #[serde(default)]
-    pub transform_version: i32,
     /// `true` = 跳过秒传预检直接建会话。只在「claim 失败且判定可退回」时置一次，
     /// 否则预检命中→claim 失败→重新申请→又命中，永远进不了实体上传。
     #[serde(default)]
@@ -201,12 +223,24 @@ pub struct FileRequestChunkedUploadTokenResponse {
     /// 仅 `s3_multipart_v1`：总分片数。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub total_parts: Option<u32>,
-    /// 本次上传该用的全站加密密钥（v2）。
-    ///
-    /// 客户端用它加密后再上传：服务端和对象存储自始至终只见到密文。
-    /// `None` = 服务端没有配置附件密钥，这个对象以明文存储。
+    /// 本次上传该用的全站加密密钥。口径同整包，见
+    /// [`FileRequestUploadTokenResponse::attachment_key`]——**不存在"没密钥就明文"**。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
+    /// 服务端冻结的**分块几何**：客户端必须**原样**用它封装。
+    ///
+    /// 🔴 客户端不能自选。同一份明文按不同块大小封装，密文长度不同、每块边界也不同——
+    /// 而 token 里冻结的密文长度是按服务端这个值算的，用别的值封出来的对象在
+    /// complete 的长度核对上必然被拒。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chunk_plain_size: Option<u32>,
+    /// 封装之后的**密文**总字节数 = `sealed_len(plaintext_size, chunk_plain_size)`。
+    ///
+    /// 🔴 这是真正要传的字节数，也是分片几何/区间网格的基准。客户端自己算不出它
+    /// （块大小是服务端定的），所以由服务端下发；上传前用它核对一下自己封出来的
+    /// 长度，对不上就是两边几何不一致，早失败好过传完再被拒。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub total_size: Option<u64>,
 }
 
 /// 获取文件 URL 请求
@@ -261,20 +295,29 @@ pub struct FileGetUrlResponse {
     /// 不进消息 typed metadata）。缺省=空串。
     #[serde(default)]
     pub original_filename: String,
-    /// v2：解开**这一个**附件所需的密钥。
+    /// 解开这个附件要用的密钥：对象记录的 `encryption_key_id` 对应的那把。
     ///
-    /// 🔴 只给这个文件用的那把，不给全量密钥表——服务端按文件行上记录的
-    /// `encryption_key_id` 取出对应密钥。下发全量意味着任何拿到一个附件的人
-    /// 就获得了全部历史对象的解密能力。
+    /// 🔴 **这是全站密钥，不是 per-file key。** 同一个 key_id 下的所有对象共用它，
+    /// 所以"拿到这把钥匙"在密码学上等于"能解开那一代的全部对象"。文件级的访问
+    /// 隔离来自私有桶、短期 URL 和 `get_url` 的鉴权，不来自密钥本身——把它当成
+    /// 文件专属密钥去设计上层逻辑会得出错误的安全结论。
+    ///
+    /// 服务端只下发这一把、不下发全量密钥表：暴露面因此限制在**一代**密钥上，
+    /// 轮换之后旧对象不会跟着泄。这是纵深防御的一层，不是隔离本身。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub attachment_key: Option<AttachmentKey>,
-    /// 服务端对**已存储字节**算出的 SHA-256。
+    /// 这份附件的**明文** SHA-256。
     ///
     /// 转发一份已有附件时用它：客户端直接拿这个摘要去 prepare + claim，
-    /// 不必把文件下下来重算，也不必重新加密（重新加密会产出另一串字节，
-    /// 那本来就是另一个物理文件）。老记录没有可用摘要时为空。
+    /// 不必把文件下下来重算，也不必重新加密。
+    ///
+    /// 🔴 是明文摘要，**不是密文摘要**。判重键就是明文摘要：同一份内容由不同人
+    /// （或同一个人两次）封装会得到不同的密文，密文摘要按定义无法跨用户命中。
+    /// 这里给密文摘要的话，转发会稳定地秒传不中——每转发一次就重传一份。
+    ///
+    /// 老记录没有可用摘要时为空。
     #[serde(default)]
-    pub sha256: Option<String>,
+    pub plaintext_sha256: Option<String>,
     /// 服务端记录的真实文件类型：`image` / `video` / `voice` / `file` / `other`。
     ///
     /// 复用一份已有附件时按它申请 token。**不要靠 mime 推**：`audio/mp3` 可能是
@@ -296,8 +339,8 @@ mod tests {
         let legacy_request = serde_json::json!({
             "file_type": "image",
             "business_type": "message",
-            "file_size": 1048576,
-            "file_hash": "ab".repeat(32),
+            "plaintext_size": 1048576,
+            "plaintext_sha256": "ab".repeat(32),
             "mime_type": "image/jpeg"
         });
         let req: FileRequestChunkedUploadTokenRequest =
