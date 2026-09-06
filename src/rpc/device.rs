@@ -31,6 +31,12 @@ pub struct DevicePushUpdateRequest {
     /// 可选的推送厂商（apns/fcm/hms/xiaomi/oppo/vivo/honor/lenovo/zte/meizu）
     #[serde(skip_serializing_if = "Option::is_none")]
     pub vendor: Option<String>,
+    /// 设备语言（BCP-47，如 `zh-Hans` / `en` / `vi`）。
+    ///
+    /// 服务端据此生成推送文案：iOS 的通知由系统直接展示，App 没有机会本地化，
+    /// 所以语言必须在服务端就确定。缺省（老客户端）按简体中文。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub locale: Option<String>,
 }
 
 /// 设备推送状态更新响应
