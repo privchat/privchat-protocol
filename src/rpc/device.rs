@@ -86,3 +86,29 @@ pub struct DevicePushInfo {
     /// 推送厂商
     pub vendor: String,
 }
+
+/// RPC: device/push/preference/get
+///
+/// 账号级推送偏好：跨设备一致，所以不放设备表。影响的是**服务端**怎么生成推送——
+/// iOS 的通知由系统直接展示，"不显示预览"这件事只能在推送发出前做掉。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevicePushPreferenceGetRequest {}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevicePushPreferenceResponse {
+    /// 通知里是否显示消息内容。false = 只显示"你收到一条新消息"。
+    pub show_preview: bool,
+    /// 全局免打扰：所有会话都不推送。
+    pub global_mute: bool,
+}
+
+/// RPC: device/push/preference/update
+///
+/// 两个字段都是可选的：只改其中一个时不必把另一个也带上，避免并发覆盖。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DevicePushPreferenceUpdateRequest {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_preview: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub global_mute: Option<bool>,
+}

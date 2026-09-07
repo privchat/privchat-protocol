@@ -263,6 +263,12 @@ pub mod device {
 
     /// 获取设备推送状态
     pub const PUSH_STATUS: &str = "device/push/status";
+
+    /// 获取账号级推送偏好（是否显示预览 / 全局免打扰）
+    pub const PUSH_PREFERENCE_GET: &str = "device/push/preference/get";
+
+    /// 更新账号级推送偏好
+    pub const PUSH_PREFERENCE_UPDATE: &str = "device/push/preference/update";
 }
 
 /// 账号资料路由
