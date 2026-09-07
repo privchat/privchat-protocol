@@ -37,6 +37,12 @@ pub struct DevicePushUpdateRequest {
     /// 所以语言必须在服务端就确定。缺省（老客户端）按简体中文。
     #[serde(skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
+    /// 这台设备的远程通知是否带提示音。
+    ///
+    /// 必须让服务端知道：APNs 的 `sound` 字段在推送 payload 里，通知由系统展示，
+    /// App 没有机会拦截自己的远程通知。缺省（老客户端）= 带声音。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub push_sound: Option<bool>,
 }
 
 /// 设备推送状态更新响应
