@@ -174,6 +174,15 @@ pub struct AccountUserDetailResponse {
     /// spec: `02-server/SERVICE_ACCOUNT_FOLLOW_SPEC`
     #[serde(default)]
     pub is_follow: bool,
+    /// 这份资料在 `user` 实体序列里的位置，与上面的字段来自**同一次数据库读取**。
+    ///
+    /// 客户端据此把详情响应放进和实体增量同一条版本轴上比较。少了它，详情只能以
+    /// 「无版本」入库：晚到的旧响应会盖掉刚同步下来的新资料，而本地版本还停在新的
+    /// 那个数字上——旧内容挂着新版本，之后再也纠不回来。
+    ///
+    /// 老 server 不发 ⇒ 0 ⇒ 客户端按「无版本部分写入」处理（只补空缺，不覆盖）。
+    #[serde(default)]
+    pub sync_version: u64,
 }
 
 /// 更新用户信息响应
