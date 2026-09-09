@@ -232,6 +232,8 @@ pub enum ErrorCode {
     GroupAddFriendPersonalDisabled = 20312,
     /// Profile view grant expired or invalid; re-fetch user detail
     ProfileViewGrantExpired = 20313,
+    /// One invite carried more members than the per-batch cap allows
+    GroupInviteBatchTooLarge = 20314,
 
     // Friend Basics (20400-20499)
     /// Friend not found
@@ -443,6 +445,7 @@ impl ErrorCode {
             Self::GroupNotFound => "Group not found",
             Self::GroupDeleted => "Group deleted",
             Self::GroupFull => "Group full",
+            Self::GroupInviteBatchTooLarge => "Too many members in one invite",
             Self::NotGroupMember => "Not a group member",
             Self::NotGroupAdmin => "Not a group admin",
             Self::NotGroupOwner => "Not a group owner",

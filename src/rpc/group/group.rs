@@ -18,6 +18,14 @@
 /// 群组基本操作 RPC
 use serde::{Deserialize, Serialize};
 
+/// 单次邀请的人数上限（CHANNEL_SPEC §7.1.1）。
+///
+/// 这是**批次**上限，不是群容量上限（`max_members`，默认 500）——500 人的群可以分
+/// 25 次邀请建起来。定义在 protocol 里是为了让服务端校验和各端提示读同一个值：
+/// 三端各写各的数字正是这条规则之前的状态（App 写死 49、web/h5 无限制、服务端不校验），
+/// 只要有一端更宽，限制就等于不存在。
+pub const GROUP_INVITE_BATCH_LIMIT: usize = 20;
+
 /// 创建群组请求
 ///
 /// RPC路由: `group/group/create`

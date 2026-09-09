@@ -494,6 +494,11 @@ name = "ProfileViewGrantExpired"
 domain = "legacy-protocol"
 
 [[code]]
+code = 20314
+name = "GroupInviteBatchTooLarge"
+domain = "legacy-protocol"
+
+[[code]]
 code = 20400
 name = "FriendNotFound"
 domain = "legacy-protocol"
