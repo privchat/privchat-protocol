@@ -44,6 +44,14 @@ pub struct MessageReadListRequest {
     pub message_id: u64,
     /// 频道ID
     pub channel_id: u64,
+    /// 键集分页游标：上一页最后一个 user_id，首页传 0。
+    ///
+    /// 不是 offset。名单在翻页途中会增长，offset 会把同一个人返回两次。
+    #[serde(default)]
+    pub after_user_id: u64,
+    /// 每页条数，服务端 clamp 到 [1, 100]，缺省 30。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u32>,
 }
 
 /// 获取消息已读统计请求
@@ -93,14 +101,17 @@ pub struct MessageStatusReadPtsResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReadUserEntry {
     pub user_id: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// PROFILE_VISIBILITY：服务端不回他人 username，这里恒为空串。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub username: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub nickname: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub read_at: Option<u64>,
+    /// 资料是否取到。取不到时仍然在名单里（阅读事实与资料分离），
+    /// 客户端据此显示占位而不是把人丢掉。
+    #[serde(default)]
+    pub profile_loaded: bool,
 }
 
 /// 获取消息已读列表响应
@@ -110,12 +121,21 @@ pub struct MessageReadUserEntry {
 pub struct MessageReadListResponse {
     #[serde(default, alias = "read_list")]
     pub readers: Vec<MessageReadUserEntry>,
-    #[serde(default, alias = "total_members")]
-    pub total: usize,
+    /// 发送时有权接收的人数（不含发送者），不是当前成员数。
+    #[serde(default, alias = "total_members", alias = "total")]
+    pub recipient_count: u32,
     #[serde(default)]
     pub read_count: u32,
+    /// 下一页游标；None = 没有下一页。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub next_after_user_id: Option<u64>,
     #[serde(default)]
-    pub unread_count: u32,
+    pub has_more: bool,
+    /// 明细可查截止时间（毫秒）。发送时固定在消息上，调大配置不会重新开放。
+    #[serde(default)]
+    pub detail_expires_at: i64,
+    #[serde(default)]
+    pub retention_days: i64,
 }
 
 /// 获取消息已读统计响应
@@ -124,8 +144,15 @@ pub struct MessageReadListResponse {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MessageReadStatsResponse {
     pub read_count: u32,
-    #[serde(default, alias = "total_members")]
-    pub total_count: u32,
+    #[serde(default, alias = "total_members", alias = "total_count")]
+    pub recipient_count: u32,
+    #[serde(default)]
+    pub unread_count: u32,
+    /// 明细可查截止时间（毫秒），过期后服务端会直接拒绝名单查询。
+    #[serde(default)]
+    pub detail_expires_at: i64,
+    #[serde(default)]
+    pub retention_days: i64,
 }
 
 /// 获取消息未读数响应
