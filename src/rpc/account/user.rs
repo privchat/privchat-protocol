@@ -35,6 +35,12 @@ pub enum DetailSourceType {
     FriendPending,
     /// 名片分享来源，source_id = 分享 ID
     CardShare,
+    /// 扫码来源（扫对方个人二维码后打开资料），source_id = qr_key。
+    ///
+    /// additive 新增。此前枚举里没有它，扫码打开的资料页只能谎报来源或被拒；
+    /// 而 apply 侧则有一条「带 qrcode 字段就跳过全部校验」的后门与之配套。
+    /// 现在扫码是一等来源，由服务端验 qr_key 的真伪与归属。
+    Qrcode,
     /// 临时会话来源（聊天界面查看对方资料），source_id = channel_id
     Conversation,
     /// 本人查本人（我的资料页/资料变更后刷新），source_id = 自己的 user_id。
@@ -53,6 +59,7 @@ impl DetailSourceType {
             Self::Friend => "friend",
             Self::FriendPending => "friend_pending",
             Self::CardShare => "card_share",
+            Self::Qrcode => "qrcode",
             Self::Conversation => "conversation",
             Self::SelfProfile => "self",
         }
@@ -65,6 +72,7 @@ impl DetailSourceType {
             "friend" => Some(Self::Friend),
             "friend_pending" => Some(Self::FriendPending),
             "card_share" => Some(Self::CardShare),
+            "qrcode" => Some(Self::Qrcode),
             "conversation" => Some(Self::Conversation),
             "self" => Some(Self::SelfProfile),
             _ => None,
