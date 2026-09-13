@@ -66,9 +66,17 @@ pub struct GroupCreateResponse {
     pub group_id: u64,
     pub name: String,
     pub description: Option<String>,
+    /// **实际**进群人数（创建者 + 写入成功的初始成员），不是请求里的人数。
     pub member_count: u32,
     pub created_at: u64, // Unix 毫秒时间戳
     pub creator_id: u64,
+    /// 请求里带了、但没能加进群的成员。
+    ///
+    /// 建群是逐个成员写库的，其中任何一个都可能失败（用户已注销、外键不满足、库抖动）。
+    /// 以前这种失败只在服务端留一条日志，接口照常返回成功、member_count 还按请求人数算——
+    /// 客户端拿到一个"看起来建好了"的群，少了谁只能靠用户自己发现。
+    #[serde(default)]
+    pub failed_member_ids: Vec<u64>,
 }
 
 /// 获取群组信息响应
