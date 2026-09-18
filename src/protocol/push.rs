@@ -19,6 +19,7 @@ pub struct PushMessageRequest {
     pub stream_flag: u8,
     pub timestamp: u32,
     pub channel_id: u64,
+    /// wire 编号,见 [`super::ChannelType`](1=Direct / 2=Group / 3=Room)。
     pub channel_type: u8,
     pub message_type: u32,
     pub expire: u32,

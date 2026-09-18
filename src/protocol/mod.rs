@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
 mod auth;
+mod channel_type;
 mod content;
 mod disconnect;
 mod entity_sync;
@@ -23,6 +24,7 @@ mod timeline;
 mod transfer;
 
 pub use auth::*;
+pub use channel_type::ChannelType;
 pub use content::*;
 pub use disconnect::*;
 pub use entity_sync::*;

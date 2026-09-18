@@ -13,6 +13,7 @@ pub struct SubscribeRequest {
     pub setting: u8,
     pub local_message_id: u64,
     pub channel_id: u64,
+    /// wire 编号,见 [`super::ChannelType`](1=Direct / 2=Group / 3=Room);0 非法。
     pub channel_type: u8,
     pub action: u8,
     pub param: String,
@@ -21,6 +22,11 @@ pub struct SubscribeRequest {
 impl SubscribeRequest {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// 解析后的频道类型;0 或未知值为 `None`,由 server 以协议错误拒绝。
+    pub fn channel_kind(&self) -> Option<super::ChannelType> {
+        super::ChannelType::from_wire(self.channel_type)
     }
 
     pub fn create_packet(self) -> Packet<Self> {
@@ -32,6 +38,7 @@ impl SubscribeRequest {
 pub struct SubscribeResponse {
     pub local_message_id: u64,
     pub channel_id: u64,
+    /// wire 编号,见 [`super::ChannelType`]。
     pub channel_type: u8,
     pub action: u8,
     pub reason_code: u8,

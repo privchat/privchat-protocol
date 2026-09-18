@@ -15,7 +15,7 @@ table PushMessageRequest {
   stream_flag       : ubyte;
   timestamp         : uint;           // u32 in source — second resolution
   channel_id        : ulong;          // 0 = absent
-  channel_type      : ubyte;
+  channel_type      : ubyte;  // wire: 1=Direct 2=Group 3=Room(src/protocol/channel_type.rs);0 非法
   message_type      : uint;           // application content type
   expire            : uint;
   topic             : string;
