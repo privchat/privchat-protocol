@@ -57,7 +57,11 @@ fn round_trips_across_chunk_boundaries() {
     for len in [0usize, 1, 4095, 4096, 4097, 8192, 8193, 10_000] {
         let plain: Vec<u8> = (0..len).map(|i| i as u8).collect();
         let blob = seal_small(&plain, &k);
-        assert_eq!(decrypt_attachment(&blob, &k).expect("decrypt"), plain, "len {len}");
+        assert_eq!(
+            decrypt_attachment(&blob, &k).expect("decrypt"),
+            plain,
+            "len {len}"
+        );
     }
 }
 
@@ -133,8 +137,16 @@ fn reordering_chunks_is_rejected() {
 #[test]
 fn substituting_a_chunk_from_another_object_is_rejected() {
     let k = key(7);
-    let a = seal_small(&(0..4 * SMALL as usize).map(|i| i as u8).collect::<Vec<_>>(), &k);
-    let b = seal_small(&(0..4 * SMALL as usize).map(|i| (i + 7) as u8).collect::<Vec<_>>(), &k);
+    let a = seal_small(
+        &(0..4 * SMALL as usize).map(|i| i as u8).collect::<Vec<_>>(),
+        &k,
+    );
+    let b = seal_small(
+        &(0..4 * SMALL as usize)
+            .map(|i| (i + 7) as u8)
+            .collect::<Vec<_>>(),
+        &k,
+    );
     let (header_a, mut chunks_a) = split_chunks(&a);
     let (_, chunks_b) = split_chunks(&b);
     chunks_a[1] = chunks_b[1].clone();
@@ -211,7 +223,11 @@ fn the_sealed_size_is_predictable_without_the_key() {
     let k = key(3);
     for len in [0usize, 1, 4095, 4096, 4097, 20_000] {
         let blob = seal_small(&vec![0xabu8; len], &k);
-        assert_eq!(blob.len() as u64, sealed_len(len as u64, SMALL).unwrap(), "明文 {len} 字节");
+        assert_eq!(
+            blob.len() as u64,
+            sealed_len(len as u64, SMALL).unwrap(),
+            "明文 {len} 字节"
+        );
     }
     // 真实块大小下的大文件同样要准。
     let big = 1_852_290u64;
@@ -368,7 +384,10 @@ mod the_ticket_decides_whether_to_decrypt {
         let k = key(9);
         let encoded = base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(k);
         let blob = seal_small(b"secret", &k);
-        assert_eq!(open_downloaded_bytes(blob, Some(&encoded)).unwrap(), b"secret");
+        assert_eq!(
+            open_downloaded_bytes(blob, Some(&encoded)).unwrap(),
+            b"secret"
+        );
     }
 
     /// 票据说有密钥而对象是明文：多半是服务端把两份记录搞混了。

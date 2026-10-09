@@ -86,8 +86,11 @@ impl Serialize for ChannelType {
 impl<'de> Deserialize<'de> for ChannelType {
     fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         let v = u8::deserialize(d)?;
-        ChannelType::from_wire(v)
-            .ok_or_else(|| serde::de::Error::custom(format!("invalid wire channel_type {v} (expected 1=direct, 2=group, 3=room)")))
+        ChannelType::from_wire(v).ok_or_else(|| {
+            serde::de::Error::custom(format!(
+                "invalid wire channel_type {v} (expected 1=direct, 2=group, 3=room)"
+            ))
+        })
     }
 }
 
@@ -110,7 +113,10 @@ mod tests {
     #[test]
     fn serde_is_numeric() {
         assert_eq!(serde_json::to_string(&ChannelType::Room).unwrap(), "3");
-        assert_eq!(serde_json::from_str::<ChannelType>("2").unwrap(), ChannelType::Group);
+        assert_eq!(
+            serde_json::from_str::<ChannelType>("2").unwrap(),
+            ChannelType::Group
+        );
         assert!(serde_json::from_str::<ChannelType>("0").is_err());
     }
 }

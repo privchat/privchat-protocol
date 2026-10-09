@@ -101,7 +101,10 @@ pub fn expected_chunk_len(header: &AttachmentHeader, index: u32) -> Result<u32, 
     }
     let consumed = (index as u64) * (header.chunk_plain_size as u64);
     let remaining = header.plaintext_size.saturating_sub(consumed);
-    Ok(u32::try_from(remaining.min(header.chunk_plain_size as u64)).expect("bounded by chunk size"))
+    Ok(
+        u32::try_from(remaining.min(header.chunk_plain_size as u64))
+            .expect("bounded by chunk size"),
+    )
 }
 
 /// 受认证的文件头。它的所有字段都进每一块的 AAD，改任何一个字节都会让全部块解不开。
@@ -159,7 +162,10 @@ impl AttachmentHeader {
             return Err("not an encrypted attachment blob".to_string());
         }
         if bytes[2] != FORMAT_VERSION {
-            return Err(format!("unsupported attachment format version: {}", bytes[2]));
+            return Err(format!(
+                "unsupported attachment format version: {}",
+                bytes[2]
+            ));
         }
         let header = Self {
             encryption_key_id: bytes[3],
@@ -189,12 +195,17 @@ impl AttachmentHeader {
 
 /// 读出 blob 声明的 key_id，用于挑密钥（轮换期两代对象并存）。
 pub fn key_id_of(blob: &[u8]) -> Option<u8> {
-    AttachmentHeader::parse(blob).ok().map(|h| h.encryption_key_id)
+    AttachmentHeader::parse(blob)
+        .ok()
+        .map(|h| h.encryption_key_id)
 }
 
 fn check_key(site_key: &[u8]) -> Result<(), String> {
     if site_key.len() != KEY_LEN {
-        return Err(format!("key must be {KEY_LEN} bytes, got {}", site_key.len()));
+        return Err(format!(
+            "key must be {KEY_LEN} bytes, got {}",
+            site_key.len()
+        ));
     }
     Ok(())
 }
@@ -343,8 +354,11 @@ impl AttachmentOpener {
             return Err(format!("attachment chunk {index} is truncated"));
         }
         let nonce: [u8; NONCE_LEN] = sealed[0..NONCE_LEN].try_into().expect("12 bytes");
-        let plaintext_len =
-            u32::from_be_bytes(sealed[NONCE_LEN..NONCE_LEN + 4].try_into().expect("4 bytes"));
+        let plaintext_len = u32::from_be_bytes(
+            sealed[NONCE_LEN..NONCE_LEN + 4]
+                .try_into()
+                .expect("4 bytes"),
+        );
         // 🔴 每块该有多长是从受认证的头**算出来**的，不是从这一块自己声明的字段读来的。
         // 读来的值只用于比对；拿它决定"允许多长"就等于让被检查的一方来定检查标准。
         let expected = expected_chunk_len(&self.header, index)?;
@@ -399,7 +413,11 @@ impl AttachmentOpener {
 }
 
 /// 整份加密（缩略图、小图这类一次性就装得下的内容）。
-pub fn encrypt_attachment(plaintext: &[u8], site_key: &[u8], key_id: u8) -> Result<Vec<u8>, String> {
+pub fn encrypt_attachment(
+    plaintext: &[u8],
+    site_key: &[u8],
+    key_id: u8,
+) -> Result<Vec<u8>, String> {
     encrypt_attachment_with_chunk_size(plaintext, site_key, key_id, DEFAULT_CHUNK_PLAIN_SIZE)
 }
 
@@ -409,15 +427,10 @@ pub fn encrypt_attachment_with_chunk_size(
     key_id: u8,
     chunk_plain_size: u32,
 ) -> Result<Vec<u8>, String> {
-    let mut sealer = AttachmentSealer::new(
-        site_key,
-        key_id,
-        plaintext.len() as u64,
-        chunk_plain_size,
-    )?;
-    let mut out = Vec::with_capacity(
-        sealed_len(plaintext.len() as u64, chunk_plain_size)? as usize,
-    );
+    let mut sealer =
+        AttachmentSealer::new(site_key, key_id, plaintext.len() as u64, chunk_plain_size)?;
+    let mut out =
+        Vec::with_capacity(sealed_len(plaintext.len() as u64, chunk_plain_size)? as usize);
     out.extend_from_slice(&sealer.header_bytes());
     if plaintext.is_empty() {
         out.extend_from_slice(&sealer.seal_chunk(&[])?);
@@ -444,7 +457,8 @@ pub fn decrypt_attachment(blob: &[u8], site_key: &[u8]) -> Result<Vec<u8>, Strin
             return Err("attachment is truncated".to_string());
         }
         let plaintext_len =
-            u32::from_be_bytes(rest[NONCE_LEN..NONCE_LEN + 4].try_into().expect("4 bytes")) as usize;
+            u32::from_be_bytes(rest[NONCE_LEN..NONCE_LEN + 4].try_into().expect("4 bytes"))
+                as usize;
         let end = CHUNK_OVERHEAD
             .checked_add(plaintext_len)
             .filter(|end| *end <= rest.len())

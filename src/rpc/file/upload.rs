@@ -285,7 +285,6 @@ impl std::fmt::Debug for AttachmentKey {
 /// RPC路由: `file/get_url`
 #[derive(Debug, Clone, Serialize, Deserialize)]
 
-
 pub struct FileGetUrlResponse {
     pub file_url: String,
     pub expires_at: i64,
