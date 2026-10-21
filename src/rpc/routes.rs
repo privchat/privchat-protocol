@@ -27,6 +27,21 @@
 /// client.call_rpc(routes::friend::APPLY, request).await?;
 /// ```
 
+/// Durable call control. State notifications use the `call/state` publish topic.
+pub mod call {
+    pub const CAPABILITIES: &str = "call/capabilities";
+    pub const INVITE: &str = "call/invite";
+    pub const JOIN: &str = "call/join";
+    pub const REJECT: &str = "call/reject";
+    pub const CANCEL: &str = "call/cancel";
+    pub const LEAVE: &str = "call/leave";
+    pub const END: &str = "call/end";
+    pub const GET: &str = "call/get";
+    pub const ACTIVE: &str = "call/active";
+    pub const HEARTBEAT: &str = "call/heartbeat";
+    pub const STATE: &str = "call/state";
+}
+
 /// 好友系统路由
 pub mod friend {
     /// 申请添加好友

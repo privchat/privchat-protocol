@@ -17,6 +17,7 @@
 
 pub mod account;
 pub mod auth;
+pub mod call;
 pub mod channel;
 pub mod channel_broadcast;
 pub mod contact;
