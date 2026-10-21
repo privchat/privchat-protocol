@@ -40,6 +40,8 @@ pub mod call {
     pub const ACTIVE: &str = "call/active";
     pub const HEARTBEAT: &str = "call/heartbeat";
     pub const STATE: &str = "call/state";
+    pub const PEER_SIGNAL: &str = "call/peer/signal";
+    pub const PEER_EVENTS: &str = "call/peer/events";
 }
 
 /// 好友系统路由
