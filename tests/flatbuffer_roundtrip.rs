@@ -273,6 +273,20 @@ fn rpc_request_roundtrip() {
 }
 
 #[test]
+fn call_state_notification_reuses_rpc_envelope_without_publish_fields() {
+    let body = serde_json::to_vec(&serde_json::json!({
+        "call": {"call_id": 9_007_199_254_740_993u64, "version": 7, "state": "ended"}
+    })).unwrap();
+    let notification = RpcRequest { route: rpc::routes::call::STATE.to_owned(), body };
+    let decoded = roundtrip(&notification);
+    assert_eq!(notification.message_type(), MessageType::RpcRequest);
+    assert_eq!(decoded.route, "call/state");
+    assert_eq!(decoded.body, notification.body);
+    let value: serde_json::Value = serde_json::from_slice(&decoded.body).unwrap();
+    assert_eq!(value["call"]["call_id"].as_u64(), Some(9_007_199_254_740_993));
+}
+
+#[test]
 fn rpc_response_roundtrip() {
     let resp_with_data = RpcResponse::success(b"data".to_vec());
     let got = roundtrip(&resp_with_data);

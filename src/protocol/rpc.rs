@@ -1,5 +1,7 @@
 //! Generic RPC envelope. `body` and `data` are opaque application bytes —
 //! per-route encoding is decided by the RPC layer.
+//! Server notifications reuse RpcRequest on a msgtrans one-way packet (biz_type 17).
+//! They have no business response and do not imply a Publish/Subscribe channel.
 
 use super::{Message, MessageType, Packet};
 use crate::codec::FlatBufferMessage;
@@ -9,6 +11,8 @@ use flatbuffers::FlatBufferBuilder;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+/// Route envelope: client request/response RPC or server one-way notification.
+/// Packet direction and msgtrans packet kind define which contract applies.
 pub struct RpcRequest {
     pub route: String,
     pub body: Vec<u8>,

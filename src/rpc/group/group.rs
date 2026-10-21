@@ -110,3 +110,62 @@ pub struct GroupInfoResponse {
     #[serde(default)]
     pub admin_user_ids: Vec<u64>,
 }
+
+/// Owner/admin profile mutation, separate from owner-only governance settings.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupUpdateRequest {
+    pub group_id: u64,
+    pub profile: GroupProfilePatch,
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GroupProfilePatch {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GroupUpdateResponse {
+    pub group_id: u64,
+    pub name: String,
+    pub description: Option<String>,
+    pub updated_at: u64,
+    pub sync_version: u64,
+}
+
+impl GroupProfilePatch {
+    pub fn validate(&mut self) -> Result<(), &'static str> {
+        if let Some(name) = &mut self.name {
+            if name.chars().any(char::is_control) {
+                return Err("群名称不能包含控制字符");
+            }
+            *name = name.trim().to_owned();
+            if name.is_empty() || name.chars().count() > 30 {
+                return Err("群名称须为 1 至 30 个字符");
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod profile_tests {
+    use super::*;
+
+    #[test]
+    fn profile_name_validation_and_clear_contract() {
+        let mut patch: GroupProfilePatch = serde_json::from_str(r#"{"name":" 群聊 ","description":""}"#).unwrap();
+        patch.validate().unwrap();
+        assert_eq!(patch.name.as_deref(), Some("群聊"));
+        assert_eq!(patch.description.as_deref(), Some(""));
+        for name in ["", "\n群", "\tname", "abcdefghijklmnopqrstuvwxyz12345"] {
+            let mut patch = GroupProfilePatch { name: Some(name.into()), description: None };
+            assert!(patch.validate().is_err());
+        }
+        assert!(serde_json::from_str::<GroupProfilePatch>(r#"{"all_muted":false}"#).is_err());
+        assert!(serde_json::from_str::<GroupProfilePatch>(r#"{"announcement":"no"}"#).is_err());
+    }
+}

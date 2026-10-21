@@ -39,6 +39,7 @@ pub mod call {
     pub const GET: &str = "call/get";
     pub const ACTIVE: &str = "call/active";
     pub const HEARTBEAT: &str = "call/heartbeat";
+    /// Server-to-client one-way RPC notification, never a Publish topic.
     pub const STATE: &str = "call/state";
     pub const PEER_SIGNAL: &str = "call/peer/signal";
     pub const PEER_EVENTS: &str = "call/peer/events";
@@ -93,6 +94,7 @@ pub mod group {
 
     /// 获取群组信息
     pub const INFO: &str = "group/group/info";
+    pub const UPDATE: &str = "group/group/update";
 }
 
 /// 群组成员路由
