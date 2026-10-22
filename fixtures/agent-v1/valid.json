@@ -289,5 +289,40 @@
         }
       ]
     }
+  },
+  {
+    "name": "permission-requested-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "permission-p1",
+      "seq": 3,
+      "kind": "permission_requested",
+      "payload": {
+        "permissionId": "p1",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "summary": "Read ./README.md",
+        "expiresAt": 2000000000000
+      }
+    }
+  },
+  {
+    "name": "permission-resolved-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "permission-p1-resolved",
+      "seq": 4,
+      "kind": "permission_resolved",
+      "payload": {
+        "permissionId": "p1",
+        "decision": "allow_once",
+        "resolvedBy": "user"
+      }
+    }
   }
 ]
