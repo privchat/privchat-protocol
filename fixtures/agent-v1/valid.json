@@ -363,5 +363,92 @@
         }
       }
     }
+  },
+  {
+    "name": "employee-start-with-role",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0",
+        "roleDescription": "Review implementation and tests",
+        "title": "Reviewer"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "node-hello-with-workdirs",
+    "category": "hello",
+    "route": "agent/node/hello",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "node.hello",
+      "runtimeVersion": "0.2.0",
+      "capabilities": [],
+      "protocolVersions": [
+        1
+      ],
+      "operations": [
+        "execution.start",
+        "execution.cancel",
+        "session.send",
+        "session.inspect",
+        "session.history",
+        "session.watch",
+        "session.unwatch",
+        "permission.resolve"
+      ],
+      "adapterVersion": "0.2.0",
+      "paseoVersion": "0.12.0",
+      "features": [
+        "durable_commands",
+        "permission_once",
+        "children_recovery"
+      ],
+      "workdirs": [
+        {
+          "id": "/tmp/weey-root",
+          "label": "weey-root"
+        }
+      ],
+      "sessionDiscovery": {
+        "external": false,
+        "reason": "executor_discovery_unverified"
+      }
+    }
+  },
+  {
+    "name": "employee-followup-with-role",
+    "category": "command",
+    "route": "agent/session/send",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.send",
+      "payload": {
+        "text": "Continue the review",
+        "messageId": "msg-2",
+        "continueFromExecutionId": "9007199254740992",
+        "roleDescription": "Focus on the revised changes"
+      },
+      "startBefore": 1900000000000
+    }
   }
 ]

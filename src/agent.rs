@@ -27,17 +27,18 @@ pub struct Command<P> {
     pub payload: P,
 }
 macro_rules! dto {
-    ($name:ident { $($field:ident : $ty:ty),* $(,)? }) => {
+    ($name:ident { $($(#[$attr:meta])* $field:ident : $ty:ty),* $(,)? }) => {
         #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
         #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        pub struct $name { $(pub $field: $ty),* }
+        pub struct $name { $($(#[$attr])* pub $field: $ty),* }
     };
 }
-dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>> });
+dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String> });
 dto!(SendPayload {
     text: String,
     message_id: String,
-    continue_from_execution_id: String
+    continue_from_execution_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>
 });
 dto!(CancelPayload { reason: Option<String> });
 dto!(EmptyPayload {});
@@ -115,6 +116,17 @@ impl NodeCommand {
         match self {
             Self::Start(c) => {
                 common!(c);
+                if c.payload
+                    .role_description
+                    .as_ref()
+                    .is_some_and(|s| s.chars().count() > 4096)
+                    || c.payload
+                        .title
+                        .as_ref()
+                        .is_some_and(|s| s.chars().count() > 128)
+                {
+                    return Err("AGENT_EXECUTION_INVALID");
+                }
                 if [
                     &c.payload.capability,
                     &c.payload.prompt,
@@ -129,6 +141,13 @@ impl NodeCommand {
             }
             Self::Send(c) => {
                 common!(c);
+                if c.payload
+                    .role_description
+                    .as_ref()
+                    .is_some_and(|s| s.chars().count() > 4096)
+                {
+                    return Err("AGENT_EXECUTION_INVALID");
+                }
                 if c.payload.text.is_empty()
                     || c.payload.message_id.is_empty()
                     || c.payload.continue_from_execution_id.is_empty()
@@ -265,7 +284,10 @@ impl StatePayload {
             None => Ok(()),
             Some(_) if self.state != ExecutionState::Failed => Err("AGENT_EXECUTION_INVALID"),
             Some(f) => match &f.summary {
-                Some(s) if s.chars().count() > MAX_FAILURE_SUMMARY_CHARS || s.chars().any(char::is_control) => {
+                Some(s)
+                    if s.chars().count() > MAX_FAILURE_SUMMARY_CHARS
+                        || s.chars().any(char::is_control) =>
+                {
                     Err("AGENT_EXECUTION_INVALID")
                 }
                 _ => Ok(()),
@@ -313,7 +335,15 @@ pub enum EventBody {
     Gap(GapPayload),
 }
 dto!(Capability { name: String, version: Option<String>, available: bool, reason: Option<String> });
-dto!(NodeHello { protocol_version: u8, kind: String, runtime_version: String, capabilities: Vec<Capability>, protocol_versions: Vec<u8>, operations: Vec<String>, adapter_version: String, paseo_version: String, features: Vec<String> });
+dto!(NodeWorkdir {
+    id: String,
+    label: String
+});
+dto!(SessionDiscovery {
+    external: bool,
+    reason: String
+});
+dto!(NodeHello { protocol_version: u8, kind: String, runtime_version: String, capabilities: Vec<Capability>, protocol_versions: Vec<u8>, operations: Vec<String>, adapter_version: String, paseo_version: Option<String>, features: Vec<String>, #[serde(default, skip_serializing_if = "Option::is_none")] workdirs: Option<Vec<NodeWorkdir>>, #[serde(default, skip_serializing_if = "Option::is_none")] session_discovery: Option<SessionDiscovery> });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HelloReply {
@@ -428,7 +458,9 @@ mod complete_fixtures {
                     serde_json::from_value::<NodeResult<serde_json::Value>>(b).unwrap();
                 }
                 "event" => {
-                    if let EventBody::State(p) = serde_json::from_value::<NodeEvent>(b).unwrap().event {
+                    if let EventBody::State(p) =
+                        serde_json::from_value::<NodeEvent>(b).unwrap().event
+                    {
                         p.validate().unwrap();
                     }
                 }
@@ -466,17 +498,28 @@ mod failure {
     }
     #[test]
     fn failure_is_bounded_and_only_on_failed() {
-        let ok = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_quota_exhausted", "retryable": true, "summary": "usage limit reached"}}));
+        let ok = state(
+            serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_quota_exhausted", "retryable": true, "summary": "usage limit reached"}}),
+        );
         assert!(ok.validate().is_ok());
-        let on_success = state(serde_json::json!({"state": "succeeded", "stateVersion": 2, "turnOutcome": "completed", "failure": {"code": "executor_error", "retryable": false}}));
+        let on_success = state(
+            serde_json::json!({"state": "succeeded", "stateVersion": 2, "turnOutcome": "completed", "failure": {"code": "executor_error", "retryable": false}}),
+        );
         assert!(on_success.validate().is_err());
-        let long = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "x".repeat(201)}}));
+        let long = state(
+            serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "x".repeat(201)}}),
+        );
         assert!(long.validate().is_err());
-        let multiline = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "a\nb"}}));
+        let multiline = state(
+            serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "a\nb"}}),
+        );
         assert!(multiline.validate().is_err());
         assert!(serde_json::from_value::<StatePayload>(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "raw_native_text", "retryable": false}})).is_err());
         assert!(serde_json::from_value::<StatePayload>(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "env": {}}})).is_err());
-        assert!(state(serde_json::json!({"state": "running", "stateVersion": 1})).validate().is_ok());
+        assert!(
+            state(serde_json::json!({"state": "running", "stateVersion": 1}))
+                .validate()
+                .is_ok()
+        );
     }
 }
-
