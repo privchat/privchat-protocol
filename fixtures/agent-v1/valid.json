@@ -324,5 +324,22 @@
         "resolvedBy": "user"
       }
     }
+  },
+  {
+    "name": "execution-cancelling-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "cancel-accepted",
+      "seq": 5,
+      "kind": "state",
+      "payload": {
+        "state": "cancelling",
+        "stateVersion": 3,
+        "nativeSessionId": "native-session-1"
+      }
+    }
   }
 ]
