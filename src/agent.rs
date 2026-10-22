@@ -416,6 +416,12 @@ mod complete_fixtures {
                     let d = serde_json::from_value::<DelegateRequest>(b).unwrap();
                     assert_eq!(d.input.workdir_binding_id, "root:0");
                 }
+                "children-query" => {
+                    serde_json::from_value::<ChildrenRequest>(b).unwrap();
+                }
+                "children-reply" => {
+                    serde_json::from_value::<ChildrenReply>(b).unwrap();
+                }
                 "command" => {}
                 x => panic!("uncovered fixture {x}"),
             }

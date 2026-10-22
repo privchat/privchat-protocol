@@ -260,5 +260,34 @@
         "artifact:review-input-v1"
       ]
     }
+  },
+  {
+    "name": "children-query",
+    "category": "children-query",
+    "route": "agent/execution/children",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "execution.children",
+      "parentExecutionId": "9007199254740993",
+      "limit": 100
+    }
+  },
+  {
+    "name": "children-reply",
+    "category": "children-reply",
+    "route": "agent/execution/children",
+    "body": {
+      "items": [
+        {
+          "parentExecutionId": "9007199254740993",
+          "childExecutionId": "9007199254740997",
+          "state": "succeeded",
+          "stateVersion": 2,
+          "resultRefs": [
+            "artifact:approved-reference"
+          ]
+        }
+      ]
+    }
   }
 ]
