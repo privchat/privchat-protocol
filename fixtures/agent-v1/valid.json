@@ -1,0 +1,264 @@
+[
+  {
+    "name": "execution.start",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "execution.cancel",
+    "category": "command",
+    "route": "agent/execution/cancel",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.cancel",
+      "payload": {
+        "reason": "user requested"
+      }
+    }
+  },
+  {
+    "name": "session.send",
+    "category": "command",
+    "route": "agent/session/send",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.send",
+      "payload": {
+        "text": "Continue the review",
+        "messageId": "msg-2",
+        "continueFromExecutionId": "9007199254740992"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "session.inspect",
+    "category": "command",
+    "route": "agent/session/inspect",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.inspect",
+      "payload": {}
+    }
+  },
+  {
+    "name": "session.history",
+    "category": "command",
+    "route": "agent/session/history",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.history",
+      "payload": {
+        "limit": 100
+      }
+    }
+  },
+  {
+    "name": "session.watch",
+    "category": "command",
+    "route": "agent/session/watch",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.watch",
+      "payload": {
+        "leaseMs": 60000,
+        "afterSeq": 0
+      }
+    }
+  },
+  {
+    "name": "session.unwatch",
+    "category": "command",
+    "route": "agent/session/unwatch",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.unwatch",
+      "payload": {
+        "subscriptionId": "watch-1"
+      }
+    }
+  },
+  {
+    "name": "permission.resolve",
+    "category": "command",
+    "route": "agent/permission/resolve",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "permission.resolve",
+      "payload": {
+        "permissionId": "perm-1",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "decision": "allow_once"
+      }
+    }
+  },
+  {
+    "name": "command-result",
+    "category": "result",
+    "route": "agent/command/result",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "command.result",
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "outcome": "applied",
+      "data": {
+        "nativeSessionId": "native-1"
+      }
+    }
+  },
+  {
+    "name": "gap",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "event-1",
+      "seq": 1,
+      "kind": "gap",
+      "payload": {
+        "afterSeq": 0,
+        "snapshotRequired": true
+      }
+    }
+  },
+  {
+    "name": "hello",
+    "category": "hello",
+    "route": "agent/node/hello",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "node.hello",
+      "runtimeVersion": "0.2.0",
+      "capabilities": [],
+      "protocolVersions": [
+        1
+      ],
+      "operations": [
+        "execution.start",
+        "execution.cancel",
+        "session.send",
+        "session.inspect",
+        "session.history",
+        "session.watch",
+        "session.unwatch",
+        "permission.resolve"
+      ],
+      "adapterVersion": "0.2.0",
+      "paseoVersion": "0.12.0",
+      "features": [
+        "durable_commands",
+        "permission_once",
+        "children_recovery"
+      ]
+    }
+  },
+  {
+    "name": "reconcile",
+    "category": "reconcile",
+    "route": "agent/node/reconcile",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "node.reconcile",
+      "limit": 100
+    }
+  },
+  {
+    "name": "child-event",
+    "category": "child",
+    "route": "agent/execution/child-event",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "execution.child-event",
+      "parentExecutionId": "9007199254740993",
+      "childExecutionId": "9007199254740997",
+      "eventId": "child-event-1",
+      "stateVersion": 2,
+      "state": "succeeded",
+      "resultRefs": [
+        "artifact:approved-reference"
+      ]
+    }
+  },
+  {
+    "name": "delegate",
+    "category": "delegate",
+    "route": "agent/execution/delegate",
+    "body": {
+      "protocolVersion": 1,
+      "kind": "execution.delegate",
+      "commandId": "delegation-request-1",
+      "parentExecutionId": "9007199254740993",
+      "targetNodeId": "9007199254740998",
+      "capability": "agent.codex",
+      "input": {
+        "prompt": "Review the supplied artifact",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "inputRefs": [
+        "artifact:review-input-v1"
+      ]
+    }
+  }
+]

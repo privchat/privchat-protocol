@@ -1,0 +1,233 @@
+[
+  {
+    "name": "wrong-version",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 2,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "numeric-id",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": 9007199254740992,
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "unknown-scope",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "global",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "native-field-injection",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0",
+        "cwd": "/etc"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "route-mismatch",
+    "category": "command",
+    "route": "agent/session/send",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "unknown-operation",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "native.eval",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 1900000000000
+    }
+  },
+  {
+    "name": "unsafe-integer",
+    "category": "command",
+    "route": "agent/execution/start",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.start",
+      "payload": {
+        "capability": "agent.codex",
+        "prompt": "Inspect only",
+        "model": "configured-model",
+        "workdirBindingId": "root:0"
+      },
+      "startBefore": 9007199254740992
+    }
+  },
+  {
+    "name": "permission-permanent",
+    "category": "command",
+    "route": "agent/permission/resolve",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "permission.resolve",
+      "payload": {
+        "permissionId": "perm-1",
+        "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "decision": "allow_all"
+      }
+    }
+  },
+  {
+    "name": "history-limit",
+    "category": "command",
+    "route": "agent/session/history",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.history",
+      "payload": {
+        "limit": 101
+      }
+    }
+  },
+  {
+    "name": "watch-limit",
+    "category": "command",
+    "route": "agent/session/watch",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "session.watch",
+      "payload": {
+        "leaseMs": 60001,
+        "afterSeq": 0
+      }
+    }
+  },
+  {
+    "name": "cancel-does-not-have-deadline",
+    "category": "command",
+    "route": "agent/execution/cancel",
+    "body": {
+      "protocolVersion": 1,
+      "commandId": "cmd-9007199254740993",
+      "executionId": "9007199254740993",
+      "scope": {
+        "kind": "workspace",
+        "ref": "9007199254740995"
+      },
+      "kind": "execution.cancel",
+      "payload": {
+        "reason": "user requested"
+      },
+      "startBefore": 1
+    }
+  }
+]
