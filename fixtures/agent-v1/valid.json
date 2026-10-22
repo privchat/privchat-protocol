@@ -341,5 +341,27 @@
         "nativeSessionId": "native-session-1"
       }
     }
+  },
+  {
+    "name": "execution-failed-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "event-failed-1",
+      "seq": 4,
+      "kind": "state",
+      "payload": {
+        "state": "failed",
+        "stateVersion": 4,
+        "nativeSessionId": "native-1",
+        "failure": {
+          "code": "executor_version_unsupported",
+          "retryable": false,
+          "summary": "Invalid request: unknown variant `default`, expected `fast` or `flex`"
+        }
+      }
+    }
   }
 ]

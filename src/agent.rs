@@ -245,7 +245,34 @@ dto!(WatchResult {
     expires_at: u64,
     base_seq: u64
 });
-dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<String> });
+dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<String>, failure: Option<ExecutionFailure> });
+// Why an execution failed, as the node classified it. Only on `failed`; never the raw native error,
+// environment or credentials. `summary` is short, single-line and redacted by the node.
+dto!(ExecutionFailure { code: FailureCode, retryable: bool, summary: Option<String> });
+pub const MAX_FAILURE_SUMMARY_CHARS: usize = 200;
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FailureCode {
+    ExecutorNotLoggedIn,
+    ExecutorQuotaExhausted,
+    ExecutorVersionUnsupported,
+    ExecutorUnavailable,
+    ExecutorError,
+}
+impl StatePayload {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        match &self.failure {
+            None => Ok(()),
+            Some(_) if self.state != ExecutionState::Failed => Err("AGENT_EXECUTION_INVALID"),
+            Some(f) => match &f.summary {
+                Some(s) if s.chars().count() > MAX_FAILURE_SUMMARY_CHARS || s.chars().any(char::is_control) => {
+                    Err("AGENT_EXECUTION_INVALID")
+                }
+                _ => Ok(()),
+            },
+        }
+    }
+}
 dto!(OutputPayload { items: Vec<HistoryItem> });
 dto!(PermissionRequested {
     permission_id: String,
@@ -401,7 +428,9 @@ mod complete_fixtures {
                     serde_json::from_value::<NodeResult<serde_json::Value>>(b).unwrap();
                 }
                 "event" => {
-                    serde_json::from_value::<NodeEvent>(b).unwrap();
+                    if let EventBody::State(p) = serde_json::from_value::<NodeEvent>(b).unwrap().event {
+                        p.validate().unwrap();
+                    }
                 }
                 "hello" => {
                     serde_json::from_value::<NodeHello>(b).unwrap();
@@ -428,3 +457,26 @@ mod complete_fixtures {
         }
     }
 }
+
+#[cfg(test)]
+mod failure {
+    use super::*;
+    fn state(v: serde_json::Value) -> StatePayload {
+        serde_json::from_value(v).unwrap()
+    }
+    #[test]
+    fn failure_is_bounded_and_only_on_failed() {
+        let ok = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_quota_exhausted", "retryable": true, "summary": "usage limit reached"}}));
+        assert!(ok.validate().is_ok());
+        let on_success = state(serde_json::json!({"state": "succeeded", "stateVersion": 2, "turnOutcome": "completed", "failure": {"code": "executor_error", "retryable": false}}));
+        assert!(on_success.validate().is_err());
+        let long = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "x".repeat(201)}}));
+        assert!(long.validate().is_err());
+        let multiline = state(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "summary": "a\nb"}}));
+        assert!(multiline.validate().is_err());
+        assert!(serde_json::from_value::<StatePayload>(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "raw_native_text", "retryable": false}})).is_err());
+        assert!(serde_json::from_value::<StatePayload>(serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_error", "retryable": false, "env": {}}})).is_err());
+        assert!(state(serde_json::json!({"state": "running", "stateVersion": 1})).validate().is_ok());
+    }
+}
+
