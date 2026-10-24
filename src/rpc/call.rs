@@ -1,6 +1,29 @@
 //! Server-authoritative call signalling; media credentials never contain SFU secrets.
 use serde::{Deserialize, Serialize};
 
+pub const CALL_PUSH_REGISTER: &str = "call/push/register";
+pub const CALL_PUSH_UNREGISTER: &str = "call/push/unregister";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallPushPlatform {
+    ApnsVoip,
+    Fcm,
+}
+
+// Push tokens are credentials: never derive Debug or accept caller-supplied user/device IDs.
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CallPushRegisterRequest {
+    pub platform: CallPushPlatform,
+    pub token: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CallPushRegistrationResponse {
+    pub registered: bool,
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CallTransport {
