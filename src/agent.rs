@@ -33,12 +33,21 @@ macro_rules! dto {
         pub struct $name { $($(#[$attr])* pub $field: $ty),* }
     };
 }
-dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String> });
+/// What one turn may touch. Chosen per turn by the server (development vs independent review),
+/// because one persistent employee session can serve both. Absent means `workspace_write`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TurnAccess {
+    WorkspaceWrite,
+    ReadOnly,
+}
+dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess> });
 dto!(SendPayload {
     text: String,
     message_id: String,
     continue_from_execution_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>
+    #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>
 });
 dto!(CancelPayload { reason: Option<String> });
 dto!(EmptyPayload {});
@@ -523,3 +532,28 @@ mod failure {
         );
     }
 }
+
+#[cfg(test)]
+mod turn_access {
+    use super::*;
+    fn start(access: serde_json::Value) -> Result<NodeCommand, &'static str> {
+        let body = serde_json::json!({"protocolVersion":1,"kind":"execution.start","commandId":"cmd-1","executionId":"1","scope":{"kind":"private","ref":""},
+            "payload":{"capability":"agent.codex","prompt":"p","model":"m","workdirBindingId":"root:0","access":access}});
+        decode_command("agent/execution/start", &serde_json::to_vec(&body).unwrap()).map_err(|_| "invalid")
+    }
+    #[test]
+    fn access_is_optional_and_only_two_values_decode() {
+        assert!(start(serde_json::json!("read_only")).is_ok());
+        assert!(start(serde_json::json!("workspace_write")).is_ok());
+        assert!(start(serde_json::json!("full_access")).is_err());
+        let send = serde_json::json!({"protocolVersion":1,"kind":"session.send","commandId":"cmd-2","executionId":"2","scope":{"kind":"private","ref":""},
+            "payload":{"text":"t","messageId":"m","continueFromExecutionId":"1","access":"read_only"}});
+        assert!(decode_command("agent/session/send", &serde_json::to_vec(&send).unwrap()).is_ok());
+        // Absent stays absent on the wire: older nodes see no new field.
+        let plain = serde_json::json!({"protocolVersion":1,"kind":"execution.start","commandId":"cmd-3","executionId":"3","scope":{"kind":"private","ref":""},
+            "payload":{"capability":"agent.codex","prompt":"p","model":"m","workdirBindingId":"root:0"}});
+        let c = decode_command("agent/execution/start", &serde_json::to_vec(&plain).unwrap()).unwrap();
+        assert!(!serde_json::to_string(&c).unwrap().contains("access"));
+    }
+}
+
