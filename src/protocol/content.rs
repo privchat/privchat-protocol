@@ -208,6 +208,53 @@ pub struct MessageSource {
 }
 
 // ------------------------------------------------------------------
+// Page links
+// ------------------------------------------------------------------
+
+/// A page link in a message: [`text`](Self::text) is shown as a link where it
+/// appears in the message and opens the page named by [`route`](Self::route)
+/// with [`params`](Self::params). Which pages exist is the client's business.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MessageLink {
+    pub text: String,
+    pub route: String,
+    #[serde(default)]
+    pub params: std::collections::BTreeMap<String, String>,
+}
+
+impl MessageLink {
+    pub const MAX_LINKS: usize = 8;
+    pub const MAX_TEXT_CHARS: usize = 200;
+    pub const MAX_ROUTE_CHARS: usize = 64;
+    pub const MAX_PARAMS: usize = 8;
+    pub const MAX_PARAM_CHARS: usize = 128;
+
+    /// The well-formed links in a metadata object's `links`; malformed entries are
+    /// dropped and the list is bounded, so a sender cannot grow every recipient's payload.
+    pub fn list_from_metadata(metadata: &serde_json::Value) -> Vec<MessageLink> {
+        let Some(items) = metadata.get("links").and_then(|v| v.as_array()) else {
+            return Vec::new();
+        };
+        items
+            .iter()
+            .filter_map(|item| serde_json::from_value::<MessageLink>(item.clone()).ok())
+            .filter(MessageLink::is_valid)
+            .take(Self::MAX_LINKS)
+            .collect()
+    }
+
+    fn is_valid(&self) -> bool {
+        let short = |s: &str, max: usize| !s.trim().is_empty() && s.chars().count() <= max;
+        short(&self.text, Self::MAX_TEXT_CHARS)
+            && short(&self.route, Self::MAX_ROUTE_CHARS)
+            && self.params.len() <= Self::MAX_PARAMS
+            && self.params.iter().all(|(k, v)| {
+                short(k, Self::MAX_PARAM_CHARS) && v.chars().count() <= Self::MAX_PARAM_CHARS
+            })
+    }
+}
+
+// ------------------------------------------------------------------
 // Top-level envelope
 // ------------------------------------------------------------------
 
@@ -225,6 +272,10 @@ pub struct MessagePayloadEnvelope {
     pub mentioned_user_ids: Vec<u64>,
     /// Stranger-message source descriptor; absent for friend messages.
     pub message_source: Option<MessageSource>,
+    /// Page links in the message text, for any message type. In the legacy JSON
+    /// projection they live at `metadata.links`, where the server stores them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub links: Vec<MessageLink>,
 }
 
 // ------------------------------------------------------------------
@@ -537,6 +588,66 @@ mod tests {
     /// wire sentinel — either one leaking through reads downstream as a real
     /// reply anchor and renders an "original unavailable" quote strip.
     #[test]
+    fn page_links_survive_flatbuffers_and_live_at_metadata_links_in_legacy_json() {
+        let link = MessageLink {
+            text: "修复按钮".into(),
+            route: "workspace.task".into(),
+            params: [
+                ("workspace_id".to_string(), "5".to_string()),
+                ("work_item_id".to_string(), "12".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        };
+        let envelope = MessagePayloadEnvelope {
+            content: "「修复按钮」卡住了".into(),
+            links: vec![link.clone()],
+            ..Default::default()
+        };
+        let decoded = MessagePayloadEnvelope::decode_fb(&envelope.encode_fb().unwrap()).unwrap();
+        assert_eq!(
+            decoded.links,
+            vec![link.clone()],
+            "a text message keeps its links on the wire"
+        );
+        let legacy = decoded.to_legacy();
+        assert_eq!(
+            legacy.metadata.as_ref().unwrap()["links"],
+            serde_json::json!([{"text":"修复按钮","route":"workspace.task","params":{"work_item_id":"12","workspace_id":"5"}}])
+        );
+        let back =
+            MessagePayloadEnvelope::from_legacy(&legacy, crate::message::ContentMessageType::Text);
+        assert_eq!(back.links, vec![link]);
+        assert!(MessagePayloadEnvelope {
+            content: "hi".into(),
+            ..Default::default()
+        }
+        .to_legacy()
+        .metadata
+        .is_none());
+    }
+
+    #[test]
+    fn malformed_and_excess_page_links_are_dropped() {
+        let metadata = serde_json::json!({"links": [
+            {"text": "", "route": "r"},
+            {"text": "x"},
+            {"text": "x", "route": "r", "params": {"k": 1}},
+            {"text": "x".repeat(201), "route": "r"},
+            {"text": "ok", "route": "r", "params": {"k": "v"}},
+        ]});
+        let links = MessageLink::list_from_metadata(&metadata);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].text, "ok");
+        let many = serde_json::json!({"links": (0..20).map(|i| serde_json::json!({"text": format!("t{i}"), "route": "r"})).collect::<Vec<_>>()});
+        assert_eq!(
+            MessageLink::list_from_metadata(&many).len(),
+            MessageLink::MAX_LINKS
+        );
+        assert!(MessageLink::list_from_metadata(&serde_json::json!({"links": "x"})).is_empty());
+    }
+
+    #[test]
     fn legacy_reply_anchor_rejects_sentinels_and_junk() {
         let envelope = |reply: Option<&str>| {
             MessagePayloadEnvelope::from_legacy(
@@ -592,13 +703,36 @@ impl MessagePayloadEnvelope {
             .and_then(|s| s.parse::<u64>().ok())
             .filter(|id| *id != 0);
         let mentioned_user_ids = legacy.mentioned_user_ids.clone().unwrap_or_default();
+        let links = legacy
+            .metadata
+            .as_ref()
+            .map(MessageLink::list_from_metadata)
+            .unwrap_or_default();
         Self {
             content: legacy.content.clone(),
             metadata,
             reply_to_message_id,
             mentioned_user_ids,
             message_source: legacy.message_source.clone(),
+            links,
         }
+    }
+
+    /// Typed metadata as JSON, with the page links at `links`.
+    fn legacy_metadata(&self) -> Option<serde_json::Value> {
+        let typed = self.metadata.as_ref().map(|m| m.to_inner_json_value());
+        if self.links.is_empty() {
+            return typed;
+        }
+        let mut object = match typed {
+            Some(serde_json::Value::Object(object)) => object,
+            _ => serde_json::Map::new(),
+        };
+        object.insert(
+            "links".to_string(),
+            serde_json::to_value(&self.links).unwrap_or(serde_json::Value::Null),
+        );
+        Some(serde_json::Value::Object(object))
     }
 
     /// Inverse of [`from_legacy`]. Used by the server when downstream code
@@ -606,7 +740,7 @@ impl MessagePayloadEnvelope {
     pub fn to_legacy(&self) -> crate::message::LocalMessagePayloadEnvelope {
         crate::message::LocalMessagePayloadEnvelope {
             content: self.content.clone(),
-            metadata: self.metadata.as_ref().map(|m| m.to_inner_json_value()),
+            metadata: self.legacy_metadata(),
             reply_to_message_id: self.reply_to_message_id.map(|n| n.to_string()),
             mentioned_user_ids: if self.mentioned_user_ids.is_empty() {
                 None
@@ -988,6 +1122,42 @@ pub(crate) fn encode_payload_envelope<'a>(
         .as_ref()
         .map(|s| encode_source(builder, s));
 
+    let links = (!envelope.links.is_empty()).then(|| {
+        let links: Vec<_> = envelope
+            .links
+            .iter()
+            .map(|link| {
+                let params: Vec<_> = link
+                    .params
+                    .iter()
+                    .map(|(key, value)| {
+                        let key = builder.create_string(key);
+                        let value = builder.create_string(value);
+                        fb::MessageLinkParam::create(
+                            builder,
+                            &fb::MessageLinkParamArgs {
+                                key: Some(key),
+                                value: Some(value),
+                            },
+                        )
+                    })
+                    .collect();
+                let params = builder.create_vector(&params);
+                let text = builder.create_string(&link.text);
+                let route = builder.create_string(&link.route);
+                fb::MessageLink::create(
+                    builder,
+                    &fb::MessageLinkArgs {
+                        text: Some(text),
+                        route: Some(route),
+                        params: Some(params),
+                    },
+                )
+            })
+            .collect();
+        builder.create_vector(&links)
+    });
+
     let args = fb::MessagePayloadEnvelopeArgs {
         content: Some(content),
         metadata_type,
@@ -995,6 +1165,7 @@ pub(crate) fn encode_payload_envelope<'a>(
         reply_to_message_id: envelope.reply_to_message_id.unwrap_or(0),
         mentioned_user_ids: Some(mentioned_user_ids),
         message_source,
+        links,
     };
     fb::MessagePayloadEnvelope::create(builder, &args)
 }
@@ -1049,7 +1220,33 @@ pub(crate) fn decode_payload_envelope(
         reply_to_message_id,
         mentioned_user_ids,
         message_source: view.message_source().map(decode_source),
-        // FlatBuffers schema 尚未带这个字段；实际投递给客户端的是 JSON 投影，
-        // 那条路径会带上来源（见 §6.2）。FB 解码路径拿不到就是 None。
+        links: view
+            .links()
+            .map(|links| {
+                links
+                    .iter()
+                    .map(|link| MessageLink {
+                        text: link.text().unwrap_or("").to_string(),
+                        route: link.route().unwrap_or("").to_string(),
+                        params: link
+                            .params()
+                            .map(|params| {
+                                params
+                                    .iter()
+                                    .map(|p| {
+                                        (
+                                            p.key().unwrap_or("").to_string(),
+                                            p.value().unwrap_or("").to_string(),
+                                        )
+                                    })
+                                    .collect()
+                            })
+                            .unwrap_or_default(),
+                    })
+                    .filter(MessageLink::is_valid)
+                    .take(MessageLink::MAX_LINKS)
+                    .collect()
+            })
+            .unwrap_or_default(),
     }
 }

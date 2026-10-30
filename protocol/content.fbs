@@ -134,6 +134,20 @@ table MessageSource {
   source_id   : string;
 }
 
+/// One parameter of a page link.
+table MessageLinkParam {
+  key   : string;
+  value : string;
+}
+
+/// A page link: `text` is shown as a link where it appears in the message
+/// and opens the page named by `route` with `params`. Any message type.
+table MessageLink {
+  text   : string;
+  route  : string;
+  params : [MessageLinkParam];
+}
+
 // ------------------------------------------------------------------
 // Top-level payload envelope
 // ------------------------------------------------------------------
@@ -154,6 +168,8 @@ table MessagePayloadEnvelope {
   /// Stranger-message source descriptor (search / group / qrcode etc.);
   /// absent for ordinary friend messages.
   message_source : MessageSource;
+  /// Page links in the message text; empty = none.
+  links : [MessageLink];
 }
 
 root_type MessagePayloadEnvelope;
