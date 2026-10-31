@@ -47,7 +47,9 @@ dto!(SendPayload {
     message_id: String,
     continue_from_execution_id: String,
     #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>
+    #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>,
+    /// The work item title shown on the node for this turn; display only.
+    #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>
 });
 dto!(CancelPayload { reason: Option<String> });
 dto!(EmptyPayload {});
@@ -425,6 +427,12 @@ mod tests {
                 case["name"]
             );
         }
+    }
+    #[test]
+    fn a_follow_up_carries_the_work_item_title() {
+        let body = serde_json::json!({"text":"go on","messageId":"m-1","continueFromExecutionId":"26","title":"Add subtract"});
+        let p: SendPayload = serde_json::from_value(body).unwrap();
+        assert_eq!(p.title.as_deref(), Some("Add subtract"));
     }
     #[test]
     fn limits_apply_to_bytes_not_characters() {
