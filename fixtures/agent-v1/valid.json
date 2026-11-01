@@ -303,8 +303,19 @@
       "payload": {
         "permissionId": "p1",
         "requestDigest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "summary": "Read ./README.md",
-        "expiresAt": 2000000000000
+        "expiresAt": 2000000000000,
+        "summary": {
+          "action": "command",
+          "title": "Run tests",
+          "command": "python3 -B -m unittest",
+          "cwd": "/work/project",
+          "paths": [],
+          "remoteApprovable": true
+        },
+        "answers": [
+          "allow_once",
+          "deny"
+        ]
       }
     }
   },
@@ -321,7 +332,8 @@
       "payload": {
         "permissionId": "p1",
         "decision": "allow_once",
-        "resolvedBy": "user"
+        "resolvedBy": "remote_user",
+        "commandId": "cmd-9007199254740993"
       }
     }
   },
@@ -356,10 +368,10 @@
         "state": "failed",
         "stateVersion": 4,
         "nativeSessionId": "native-1",
+        "turnOutcome": "failed",
         "failure": {
-          "code": "executor_version_unsupported",
-          "retryable": false,
-          "summary": "Invalid request: unknown variant `default`, expected `fast` or `flex`"
+          "code": "executor_error",
+          "retryable": false
         }
       }
     }
@@ -499,6 +511,153 @@
         "accepted": true
       },
       "error": null
+    }
+  },
+  {
+    "name": "permission-local-only-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "permission-p2",
+      "seq": 7,
+      "kind": "permission_requested",
+      "payload": {
+        "permissionId": "p2",
+        "requestDigest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "expiresAt": 2000000000000,
+        "summary": {
+          "action": "tool",
+          "title": "Local approval required",
+          "paths": [],
+          "remoteApprovable": false
+        },
+        "answers": [
+          "allow_once",
+          "deny"
+        ]
+      }
+    }
+  },
+  {
+    "name": "permission-expired-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "permission-p2-resolved",
+      "seq": 8,
+      "kind": "permission_resolved",
+      "payload": {
+        "permissionId": "p2",
+        "decision": "deny",
+        "resolvedBy": "expired"
+      }
+    }
+  },
+  {
+    "name": "output-assistant-text-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "output-1",
+      "seq": 9,
+      "kind": "output",
+      "payload": {
+        "items": [
+          {
+            "id": "9007199254740993:3f1c2a9b8d7e6f50",
+            "kind": "assistant_text",
+            "text": "Done."
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "output-tool-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "output-2",
+      "seq": 10,
+      "kind": "output",
+      "payload": {
+        "items": [
+          {
+            "id": "9007199254740993:0a1b2c3d4e5f6071",
+            "kind": "tool_summary",
+            "text": "Run tests",
+            "callId": "tool-0a1b2c3d4e5f60718293a4b5",
+            "status": "completed"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "execution-succeeded-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "event-succeeded",
+      "seq": 11,
+      "kind": "state",
+      "payload": {
+        "state": "succeeded",
+        "stateVersion": 5,
+        "turnOutcome": "completed",
+        "nativeSessionId": "native-session-1"
+      }
+    }
+  },
+  {
+    "name": "execution-unknown-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "event-unknown",
+      "seq": 12,
+      "kind": "state",
+      "payload": {
+        "state": "unknown",
+        "stateVersion": 6,
+        "turnOutcome": "unknown",
+        "nativeSessionId": "native-session-1"
+      }
+    }
+  },
+  {
+    "name": "execution-failed-with-summary-event",
+    "category": "event",
+    "route": "agent/execution/event",
+    "body": {
+      "protocolVersion": 1,
+      "executionId": "9007199254740993",
+      "eventId": "event-failed-1",
+      "seq": 4,
+      "kind": "state",
+      "payload": {
+        "state": "failed",
+        "stateVersion": 4,
+        "nativeSessionId": "native-1",
+        "failure": {
+          "code": "executor_version_unsupported",
+          "retryable": false,
+          "summary": "The executor rejected the model setting"
+        },
+        "turnOutcome": "failed"
+      }
     }
   }
 ]

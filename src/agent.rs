@@ -269,7 +269,35 @@ pub enum ItemKind {
     Artifact,
     Notice,
 }
-dto!(HistoryItem { id: String, kind: ItemKind, text: Option<String>, tool_name: Option<String>, artifact_ref: Option<String>, native_kind: Option<String> });
+/// Progress of one tool call; its updates share `call_id`. Never a business verdict.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolStatus {
+    InProgress,
+    Completed,
+    Failed,
+}
+// One public item of a turn (WEEY_AGENT_PROTOCOL_SPEC §0.1/§0.5). `id` is the node's own stable id,
+// never a native turn/item id; `tool_name` is a readable tool name or absent, never a backend label.
+dto!(HistoryItem { id: String, kind: ItemKind,
+    #[serde(default, skip_serializing_if = "Option::is_none")] text: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] tool_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] artifact_ref: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] call_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] status: Option<ToolStatus> });
+impl HistoryItem {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let bad = |s: &str, max: usize| s.is_empty() || s.chars().count() > max || s.chars().any(char::is_control);
+        if bad(&self.id, 128)
+            || self.tool_name.as_deref().is_some_and(|t| bad(t, 64) || t.contains(':'))
+            || self.call_id.as_deref().is_some_and(|c| bad(c, 128))
+            || ((self.call_id.is_some() || self.status.is_some()) && self.kind != ItemKind::ToolSummary)
+        {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
+        Ok(())
+    }
+}
 dto!(InspectResult { session_state: String, native_session_id: String, active_turn_id: Option<String>, pending_permission_ids: Vec<String> });
 dto!(HistoryResult { items: Vec<HistoryItem>, next_cursor: Option<String>, snapshot_version: String });
 dto!(WatchResult {
@@ -277,7 +305,17 @@ dto!(WatchResult {
     expires_at: u64,
     base_seq: u64
 });
-dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<String>, failure: Option<ExecutionFailure>,
+/// How a turn ended; present on every terminal state (and on `unknown`), never otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TurnOutcome {
+    Completed,
+    Cancelled,
+    Failed,
+    Interrupted,
+    Unknown,
+}
+dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<TurnOutcome>, failure: Option<ExecutionFailure>,
     /// The cancel was not confirmed: the executor did not end the turn, or processes the turn
     /// started did not exit (WEEY_AGENT_PROTOCOL_SPEC §0.4.3). Only on `cancelling`.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")] stop_unconfirmed: bool });
@@ -299,6 +337,17 @@ impl StatePayload {
         if self.stop_unconfirmed && self.state != ExecutionState::Cancelling {
             return Err("AGENT_EXECUTION_INVALID");
         }
+        use ExecutionState as S;
+        use TurnOutcome as O;
+        let outcome_ok = match (&self.state, self.turn_outcome) {
+            (S::Succeeded, Some(O::Completed)) | (S::Cancelled, Some(O::Cancelled)) | (S::Failed, Some(O::Failed)) => true,
+            (S::Unknown, None | Some(O::Unknown | O::Interrupted)) => true,
+            (S::Succeeded | S::Cancelled | S::Failed | S::Unknown, _) => false,
+            (_, outcome) => outcome.is_none(),
+        };
+        if !outcome_ok {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
         match &self.failure {
             None => Ok(()),
             Some(_) if self.state != ExecutionState::Failed => Err("AGENT_EXECUTION_INVALID"),
@@ -315,17 +364,81 @@ impl StatePayload {
     }
 }
 dto!(OutputPayload { items: Vec<HistoryItem> });
+/// What an approval asks for, in Weey's own terms (WEEY_AGENT_PROTOCOL_SPEC §0.5). The node converts
+/// the native request in its adapter; no ACP/Codex field travels further.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PermissionAction {
+    Command,
+    FileChange,
+    Tool,
+}
+pub const MAX_PERMISSION_TITLE_CHARS: usize = 200;
+pub const MAX_PERMISSION_COMMAND_CHARS: usize = 4000;
+pub const MAX_PERMISSION_PATHS: usize = 50;
+pub const MAX_PERMISSION_PATH_CHARS: usize = 1024;
+dto!(PermissionSummary { action: PermissionAction, title: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")] command: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] cwd: Option<String>,
+    #[serde(default)] paths: Vec<String>,
+    /// Decided by the node: whether the owner can see enough of the request to allow it remotely.
+    remote_approvable: bool });
+impl PermissionSummary {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let control = |s: &str| s.chars().any(char::is_control);
+        let title = self.title.chars().count();
+        if title == 0 || title > MAX_PERMISSION_TITLE_CHARS || control(&self.title)
+            || self.command.as_deref().is_some_and(|c| c.is_empty() || c.chars().count() > MAX_PERMISSION_COMMAND_CHARS)
+            || self.cwd.as_deref().is_some_and(|c| c.is_empty() || c.chars().count() > MAX_PERMISSION_PATH_CHARS || control(c))
+            || self.paths.len() > MAX_PERMISSION_PATHS
+            || self.paths.iter().any(|p| p.is_empty() || p.chars().count() > MAX_PERMISSION_PATH_CHARS || control(p))
+        {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
+        Ok(())
+    }
+}
 dto!(PermissionRequested {
     permission_id: String,
     request_digest: String,
-    summary: String,
-    expires_at: u64
+    expires_at: u64,
+    summary: PermissionSummary,
+    answers: Vec<PermissionDecision>
 });
+impl PermissionRequested {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        self.summary.validate()?;
+        if self.answers.is_empty() || self.answers.len() > 2 {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
+        Ok(())
+    }
+}
+/// Who settled an approval. A remote decision names the server command the node applied; the
+/// server keeps its own record of who decided and does not take the node's word for it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ResolvedBy {
+    RemoteUser,
+    LocalUser,
+    Expired,
+}
 dto!(PermissionResolved {
     permission_id: String,
     decision: PermissionDecision,
-    resolved_by: String
+    resolved_by: ResolvedBy,
+    #[serde(default, skip_serializing_if = "Option::is_none")] command_id: Option<String>
 });
+impl PermissionResolved {
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let ok = match self.resolved_by {
+            ResolvedBy::RemoteUser => self.command_id.as_deref().is_some_and(|c| !c.is_empty() && c.len() <= 128),
+            ResolvedBy::Expired => self.command_id.is_none() && self.decision == PermissionDecision::Deny,
+            ResolvedBy::LocalUser => self.command_id.is_none(),
+        };
+        if ok { Ok(()) } else { Err("AGENT_EXECUTION_INVALID") }
+    }
+}
 dto!(HistoryInvalidated {
     snapshot_version: String
 });
@@ -342,6 +455,19 @@ pub struct NodeEvent {
     pub seq: u64,
     #[serde(flatten)]
     pub event: EventBody,
+}
+impl NodeEvent {
+    /// Every payload rule of the event (the shapes themselves are enforced by decoding).
+    pub fn validate(&self) -> Result<(), &'static str> {
+        match &self.event {
+            EventBody::State(p) => p.validate(),
+            EventBody::Output(p) if p.items.is_empty() => Err("AGENT_EXECUTION_INVALID"),
+            EventBody::Output(p) => p.items.iter().try_for_each(HistoryItem::validate),
+            EventBody::PermissionRequested(p) => p.validate(),
+            EventBody::PermissionResolved(p) => p.validate(),
+            EventBody::HistoryInvalidated(_) | EventBody::Gap(_) => Ok(()),
+        }
+    }
 }
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "payload", rename_all = "snake_case")]
@@ -437,12 +563,52 @@ mod tests {
         }
     }
     #[test]
+    fn terminal_states_carry_a_matching_turn_outcome() {
+        let st = |v: serde_json::Value| serde_json::from_value::<StatePayload>(v).unwrap().validate();
+        assert!(st(serde_json::json!({"state":"succeeded","stateVersion":1,"turnOutcome":"completed"})).is_ok());
+        assert!(st(serde_json::json!({"state":"succeeded","stateVersion":1})).is_err(), "terminal without outcome");
+        assert!(st(serde_json::json!({"state":"succeeded","stateVersion":1,"turnOutcome":"cancelled"})).is_err());
+        assert!(st(serde_json::json!({"state":"unknown","stateVersion":1,"turnOutcome":"interrupted"})).is_ok());
+        assert!(st(serde_json::json!({"state":"unknown","stateVersion":1,"turnOutcome":"completed"})).is_err());
+        assert!(st(serde_json::json!({"state":"running","stateVersion":1,"turnOutcome":"completed"})).is_err());
+        assert!(serde_json::from_value::<StatePayload>(serde_json::json!({"state":"succeeded","stateVersion":1,"turnOutcome":"done"})).is_err());
+    }
+    #[test]
+    fn permissions_are_weey_shapes_with_bounded_fields() {
+        let ok = serde_json::json!({"permissionId":"p","requestDigest":"d","expiresAt":1,"answers":["allow_once","deny"],
+            "summary":{"action":"command","title":"Run tests","command":"make test","cwd":"/w","paths":[],"remoteApprovable":true}});
+        assert!(serde_json::from_value::<PermissionRequested>(ok.clone()).unwrap().validate().is_ok());
+        let mut native = ok.clone();
+        native["summary"]["rawInput"] = serde_json::json!({"command":"make test"});
+        assert!(serde_json::from_value::<PermissionRequested>(native).is_err(), "no native fields");
+        let mut long = ok.clone();
+        long["summary"]["title"] = serde_json::json!("x".repeat(201));
+        assert!(serde_json::from_value::<PermissionRequested>(long).unwrap().validate().is_err());
+        let mut lines = ok;
+        lines["summary"]["title"] = serde_json::json!("a\nb");
+        assert!(serde_json::from_value::<PermissionRequested>(lines).unwrap().validate().is_err());
+        let r = |v: serde_json::Value| serde_json::from_value::<PermissionResolved>(v).unwrap().validate();
+        assert!(r(serde_json::json!({"permissionId":"p","decision":"allow_once","resolvedBy":"remote_user","commandId":"cmd-1"})).is_ok());
+        assert!(r(serde_json::json!({"permissionId":"p","decision":"allow_once","resolvedBy":"remote_user"})).is_err(), "remote names its command");
+        assert!(r(serde_json::json!({"permissionId":"p","decision":"allow_once","resolvedBy":"expired"})).is_err(), "expiry only denies");
+        assert!(serde_json::from_value::<PermissionResolved>(serde_json::json!({"permissionId":"p","decision":"deny","resolvedBy":"native"})).is_err());
+    }
+    #[test]
+    fn items_carry_no_backend_labels() {
+        let item = |v: serde_json::Value| serde_json::from_value::<HistoryItem>(v);
+        assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","text":"t"})).unwrap().validate().is_ok());
+        assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","toolName":"acp:message"})).unwrap().validate().is_err());
+        assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","nativeKind":"reasoning"})).is_err());
+        assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","callId":"c","status":"completed"})).unwrap().validate().is_err());
+        assert!(item(serde_json::json!({"id":"9:ab","kind":"tool_summary","callId":"c","status":"completed"})).unwrap().validate().is_ok());
+    }
+    #[test]
     fn stop_unconfirmed_is_only_a_cancelling_state() {
         let ok: StatePayload = serde_json::from_value(serde_json::json!({"state":"cancelling","stateVersion":4,"stopUnconfirmed":true})).unwrap();
         assert!(ok.validate().is_ok() && ok.stop_unconfirmed);
         let bad: StatePayload = serde_json::from_value(serde_json::json!({"state":"running","stateVersion":4,"stopUnconfirmed":true})).unwrap();
         assert_eq!(bad.validate(), Err("AGENT_EXECUTION_INVALID"));
-        let plain: StatePayload = serde_json::from_value(serde_json::json!({"state":"cancelled","stateVersion":5})).unwrap();
+        let plain: StatePayload = serde_json::from_value(serde_json::json!({"state":"cancelled","stateVersion":5,"turnOutcome":"cancelled"})).unwrap();
         assert!(!plain.stop_unconfirmed);
         assert!(!serde_json::to_string(&plain).unwrap().contains("stopUnconfirmed"), "absent when false");
     }
@@ -503,11 +669,8 @@ mod complete_fixtures {
                     serde_json::from_value::<NodeResult<serde_json::Value>>(b).unwrap();
                 }
                 "event" => {
-                    if let EventBody::State(p) =
-                        serde_json::from_value::<NodeEvent>(b).unwrap().event
-                    {
-                        p.validate().unwrap();
-                    }
+                    let e = serde_json::from_value::<NodeEvent>(b).unwrap_or_else(|e| panic!("{}: {e}", c["name"]));
+                    e.validate().unwrap_or_else(|e| panic!("{}: {e}", c["name"]));
                 }
                 "hello" => {
                     serde_json::from_value::<NodeHello>(b).unwrap();
@@ -544,7 +707,7 @@ mod failure {
     #[test]
     fn failure_is_bounded_and_only_on_failed() {
         let ok = state(
-            serde_json::json!({"state": "failed", "stateVersion": 2, "failure": {"code": "executor_quota_exhausted", "retryable": true, "summary": "usage limit reached"}}),
+            serde_json::json!({"state": "failed", "stateVersion": 2, "turnOutcome": "failed", "failure": {"code": "executor_quota_exhausted", "retryable": true, "summary": "usage limit reached"}}),
         );
         assert!(ok.validate().is_ok());
         let on_success = state(
