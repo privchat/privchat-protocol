@@ -277,7 +277,10 @@ dto!(WatchResult {
     expires_at: u64,
     base_seq: u64
 });
-dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<String>, failure: Option<ExecutionFailure> });
+dto!(StatePayload { state: ExecutionState, state_version: u64, native_session_id: Option<String>, turn_outcome: Option<String>, failure: Option<ExecutionFailure>,
+    /// The cancel was not confirmed: the executor did not end the turn, or processes the turn
+    /// started did not exit (WEEY_AGENT_PROTOCOL_SPEC §0.4.3). Only on `cancelling`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")] stop_unconfirmed: bool });
 // Why an execution failed, as the node classified it. Only on `failed`; never the raw native error,
 // environment or credentials. `summary` is short, single-line and redacted by the node.
 dto!(ExecutionFailure { code: FailureCode, retryable: bool, summary: Option<String> });
@@ -293,6 +296,9 @@ pub enum FailureCode {
 }
 impl StatePayload {
     pub fn validate(&self) -> Result<(), &'static str> {
+        if self.stop_unconfirmed && self.state != ExecutionState::Cancelling {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
         match &self.failure {
             None => Ok(()),
             Some(_) if self.state != ExecutionState::Failed => Err("AGENT_EXECUTION_INVALID"),
@@ -429,6 +435,16 @@ mod tests {
                 case["name"]
             );
         }
+    }
+    #[test]
+    fn stop_unconfirmed_is_only_a_cancelling_state() {
+        let ok: StatePayload = serde_json::from_value(serde_json::json!({"state":"cancelling","stateVersion":4,"stopUnconfirmed":true})).unwrap();
+        assert!(ok.validate().is_ok() && ok.stop_unconfirmed);
+        let bad: StatePayload = serde_json::from_value(serde_json::json!({"state":"running","stateVersion":4,"stopUnconfirmed":true})).unwrap();
+        assert_eq!(bad.validate(), Err("AGENT_EXECUTION_INVALID"));
+        let plain: StatePayload = serde_json::from_value(serde_json::json!({"state":"cancelled","stateVersion":5})).unwrap();
+        assert!(!plain.stop_unconfirmed);
+        assert!(!serde_json::to_string(&plain).unwrap().contains("stopUnconfirmed"), "absent when false");
     }
     #[test]
     fn a_follow_up_carries_the_work_item_title() {
