@@ -41,7 +41,7 @@ pub enum TurnAccess {
     WorkspaceWrite,
     ReadOnly,
 }
-dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess> });
+dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>, #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String> });
 dto!(SendPayload {
     text: String,
     message_id: String,
@@ -49,7 +49,9 @@ dto!(SendPayload {
     #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>,
     /// The work item title shown on the node for this turn; display only.
-    #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>
+    #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>,
+    /// The work item this turn belongs to, so the node can group turns; display only, absent for private work.
+    #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String>
 });
 dto!(CancelPayload { reason: Option<String> });
 dto!(EmptyPayload {});
@@ -433,6 +435,16 @@ mod tests {
         let body = serde_json::json!({"text":"go on","messageId":"m-1","continueFromExecutionId":"26","title":"Add subtract"});
         let p: SendPayload = serde_json::from_value(body).unwrap();
         assert_eq!(p.title.as_deref(), Some("Add subtract"));
+    }
+    #[test]
+    fn turns_carry_their_work_item_id() {
+        let start: StartPayload = serde_json::from_value(serde_json::json!({"capability":"agent.codex","prompt":"p","model":"m","workdirBindingId":"/w","workItemId":"10"})).unwrap();
+        assert_eq!(start.work_item_id.as_deref(), Some("10"));
+        let send: SendPayload = serde_json::from_value(serde_json::json!({"text":"go on","messageId":"m-1","continueFromExecutionId":"26","workItemId":"11"})).unwrap();
+        assert_eq!(send.work_item_id.as_deref(), Some("11"));
+        let private: SendPayload = serde_json::from_value(serde_json::json!({"text":"t","messageId":"m-2","continueFromExecutionId":"27"})).unwrap();
+        assert_eq!(private.work_item_id, None);
+        assert!(!serde_json::to_string(&private).unwrap().contains("workItemId"));
     }
     #[test]
     fn limits_apply_to_bytes_not_characters() {
