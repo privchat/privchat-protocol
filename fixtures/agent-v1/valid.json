@@ -203,13 +203,6 @@
         "session.watch",
         "session.unwatch",
         "permission.resolve"
-      ],
-      "adapterVersion": "0.2.0",
-      "paseoVersion": "0.12.0",
-      "features": [
-        "durable_commands",
-        "permission_once",
-        "children_recovery"
       ]
     }
   },
@@ -422,23 +415,12 @@
         "session.unwatch",
         "permission.resolve"
       ],
-      "adapterVersion": "0.2.0",
-      "paseoVersion": "0.12.0",
-      "features": [
-        "durable_commands",
-        "permission_once",
-        "children_recovery"
-      ],
       "workdirs": [
         {
           "id": "/tmp/weey-root",
           "label": "weey-root"
         }
-      ],
-      "sessionDiscovery": {
-        "external": false,
-        "reason": "executor_discovery_unverified"
-      }
+      ]
     }
   },
   {

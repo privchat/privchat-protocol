@@ -484,11 +484,27 @@ dto!(NodeWorkdir {
     id: String,
     label: String
 });
-dto!(SessionDiscovery {
-    external: bool,
-    reason: String
+dto!(NodeHello {
+    protocol_version: u8,
+    kind: String,
+    runtime_version: String,
+    capabilities: Vec<Capability>,
+    protocol_versions: Vec<u8>,
+    operations: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    workdirs: Option<Vec<NodeWorkdir>>,
+    /// Device description shown on the phone; it never authorizes anything (MODULE_AGENT_SPEC §5).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    os: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    os_version: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    arch: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device_class: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    device_name: Option<String>
 });
-dto!(NodeHello { protocol_version: u8, kind: String, runtime_version: String, capabilities: Vec<Capability>, protocol_versions: Vec<u8>, operations: Vec<String>, adapter_version: String, paseo_version: Option<String>, features: Vec<String>, #[serde(default, skip_serializing_if = "Option::is_none")] workdirs: Option<Vec<NodeWorkdir>>, #[serde(default, skip_serializing_if = "Option::is_none")] session_discovery: Option<SessionDiscovery> });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HelloReply {
