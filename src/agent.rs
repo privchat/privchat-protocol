@@ -528,20 +528,6 @@ pub struct ReconcileReply {
     pub invalidated_permission_ids: Vec<String>,
     pub next_cursor: Option<String>,
 }
-dto!(ChildEvent { protocol_version: u8, kind: String, parent_execution_id: String, child_execution_id: String, event_id: String, state_version: u64, state: ExecutionState, result_refs: Vec<String> });
-dto!(ChildrenRequest { protocol_version: u8, kind: String, parent_execution_id: String, cursor: Option<String>, limit: u32 });
-dto!(ChildView { parent_execution_id: String, child_execution_id: String, state_version: u64, state: ExecutionState, result_refs: Vec<String> });
-dto!(ChildrenReply { items: Vec<ChildView>, next_cursor: Option<String> });
-dto!(DelegateInput {
-    prompt: String,
-    model: String,
-    workdir_binding_id: String
-});
-dto!(DelegateRequest { protocol_version: u8, kind: String, command_id: String, parent_execution_id: String, target_node_id: String, capability: String, input: DelegateInput, input_refs: Vec<String> });
-dto!(DelegateReply {
-    child_execution_id: String
-});
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -693,19 +679,6 @@ mod complete_fixtures {
                 }
                 "reconcile" => {
                     serde_json::from_value::<ReconcileRequest>(b).unwrap();
-                }
-                "child" => {
-                    serde_json::from_value::<ChildEvent>(b).unwrap();
-                }
-                "delegate" => {
-                    let d = serde_json::from_value::<DelegateRequest>(b).unwrap();
-                    assert_eq!(d.input.workdir_binding_id, "root:0");
-                }
-                "children-query" => {
-                    serde_json::from_value::<ChildrenRequest>(b).unwrap();
-                }
-                "children-reply" => {
-                    serde_json::from_value::<ChildrenReply>(b).unwrap();
                 }
                 "command" => {}
                 x => panic!("uncovered fixture {x}"),
