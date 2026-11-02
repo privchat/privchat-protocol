@@ -277,6 +277,19 @@ pub enum ToolStatus {
     Completed,
     Failed,
 }
+/// What a tool call does, in Weey's own terms (the executor's tool names never reach a person). With it the
+/// app words the step in the reader's language; the item's `text` is then only the concrete thing --
+/// the command, path, query or address -- or absent when the executor has not said yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolAction {
+    Command,
+    FileChange,
+    Read,
+    Search,
+    Fetch,
+    Other,
+}
 // One public item of a turn (WEEY_AGENT_PROTOCOL_SPEC §0.1/§0.5). `id` is the node's own stable id,
 // never a native turn/item id; `tool_name` is a readable tool name or absent, never a backend label.
 dto!(HistoryItem { id: String, kind: ItemKind,
@@ -284,14 +297,15 @@ dto!(HistoryItem { id: String, kind: ItemKind,
     #[serde(default, skip_serializing_if = "Option::is_none")] tool_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")] artifact_ref: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")] call_id: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")] status: Option<ToolStatus> });
+    #[serde(default, skip_serializing_if = "Option::is_none")] status: Option<ToolStatus>,
+    #[serde(default, skip_serializing_if = "Option::is_none")] action: Option<ToolAction> });
 impl HistoryItem {
     pub fn validate(&self) -> Result<(), &'static str> {
         let bad = |s: &str, max: usize| s.is_empty() || s.chars().count() > max || s.chars().any(char::is_control);
         if bad(&self.id, 128)
             || self.tool_name.as_deref().is_some_and(|t| bad(t, 64) || t.contains(':'))
             || self.call_id.as_deref().is_some_and(|c| bad(c, 128))
-            || ((self.call_id.is_some() || self.status.is_some()) && self.kind != ItemKind::ToolSummary)
+            || ((self.call_id.is_some() || self.status.is_some() || self.action.is_some()) && self.kind != ItemKind::ToolSummary)
         {
             return Err("AGENT_EXECUTION_INVALID");
         }
@@ -704,6 +718,9 @@ mod tests {
         assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","nativeKind":"reasoning"})).is_err());
         assert!(item(serde_json::json!({"id":"9:ab","kind":"assistant_text","callId":"c","status":"completed"})).unwrap().validate().is_err());
         assert!(item(serde_json::json!({"id":"9:ab","kind":"tool_summary","callId":"c","status":"completed"})).unwrap().validate().is_ok());
+        assert!(item(serde_json::json!({"id":"9:ac","kind":"tool_summary","callId":"c","status":"in_progress","action":"command"})).unwrap().validate().is_ok());
+        assert!(item(serde_json::json!({"id":"9:ad","kind":"assistant_text","action":"command"})).unwrap().validate().is_err(), "an action belongs to a tool call");
+        assert!(item(serde_json::json!({"id":"9:ae","kind":"tool_summary","action":"bash"})).is_err(), "closed set");
     }
     #[test]
     fn stop_unconfirmed_is_only_a_cancelling_state() {
