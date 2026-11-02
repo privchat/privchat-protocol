@@ -528,6 +528,107 @@ pub struct ReconcileReply {
     pub invalidated_permission_ids: Vec<String>,
     pub next_cursor: Option<String>,
 }
+/// What a node does with a non-zero answer to one of its uplinks (WEEY_AGENT_PROTOCOL_SPEC §0.3). The single
+/// classification every node uses; decided by the exact machine code, never by a prefix.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UplinkDisposition {
+    /// Temporary: send the same bytes again later, in order.
+    Retry,
+    /// This record is refused for good: keep it aside with its reason; the records behind it still flow.
+    Quarantine,
+    /// The node's own access credential failed: refresh it, then send again.
+    RefreshCredentials,
+    /// The node's binding itself is gone: stop new work and become unpaired.
+    Unpaired,
+    /// The execution's archive is full: the node compacts that record (existing archive-limit handling).
+    ArchiveLimit,
+    /// Not in this table: retry with backoff and record a local diagnostic. Never quarantined, never unpaired.
+    Unknown,
+}
+
+/// Machine codes module-agent answers on node uplinks, by disposition. A code here decides alone, whatever the
+/// numeric status it rides on (a refused record may carry PERMISSION_DENIED).
+const UPLINK_RETRY: &[&str] = &[
+    "AGENT_IM_UNAVAILABLE",
+    "AGENT_SESSION_BUSY",
+    "AGENT_EXECUTOR_RESTARTING",
+    // The session's protocol is renegotiated by the next hello; the record itself is fine.
+    "AGENT_PROTOCOL_UNSUPPORTED",
+];
+const UPLINK_QUARANTINE: &[&str] = &[
+    "AGENT_EXECUTION_INVALID",
+    "AGENT_EXECUTION_CONFLICT",
+    "AGENT_EXECUTION_NOT_FOUND",
+    "AGENT_PERMISSION_STALE",
+    "AGENT_PAYLOAD_TOO_LARGE",
+    "AGENT_CAPABILITY_NOT_GRANTED",
+    "AGENT_OPERATION_UNSUPPORTED",
+    "AGENT_COMMAND_EXPIRED",
+    "AGENT_NODE_QUERY_NOT_FOUND",
+    "AGENT_NODE_QUERY_INVALID",
+];
+const UPLINK_UNPAIRED: &[&str] = &["AGENT_NODE_REVOKED", "AGENT_NODE_NOT_FOUND"];
+/// SYSTEM_BUSY, SERVICE_UNAVAILABLE, TIMEOUT, NETWORK_ERROR, RATE_LIMIT_EXCEEDED.
+const UPLINK_RETRY_STATUS: &[i32] = &[2, 3, 5, 9, 10300];
+/// AUTH_REQUIRED, INVALID_TOKEN, TOKEN_EXPIRED, TOKEN_REVOKED, SESSION_EXPIRED, SESSION_NOT_FOUND,
+/// REFRESH_TOKEN_EXPIRED, REFRESH_TOKEN_REVOKED (not PERMISSION_DENIED 10004: that is never the credential).
+const UPLINK_CREDENTIAL_STATUS: &[i32] = &[10000, 10001, 10002, 10003, 10005, 10006, 10009, 10010];
+
+pub fn uplink_disposition(code: i32, message: &str) -> UplinkDisposition {
+    if message == "AGENT_ARCHIVE_LIMIT" {
+        return UplinkDisposition::ArchiveLimit;
+    }
+    if UPLINK_UNPAIRED.contains(&message) {
+        return UplinkDisposition::Unpaired;
+    }
+    if UPLINK_QUARANTINE.contains(&message) {
+        return UplinkDisposition::Quarantine;
+    }
+    if UPLINK_RETRY.contains(&message) {
+        return UplinkDisposition::Retry;
+    }
+    if UPLINK_CREDENTIAL_STATUS.contains(&code) {
+        return UplinkDisposition::RefreshCredentials;
+    }
+    if UPLINK_RETRY_STATUS.contains(&code) {
+        return UplinkDisposition::Retry;
+    }
+    UplinkDisposition::Unknown
+}
+
+#[cfg(test)]
+mod uplink_tests {
+    use super::*;
+
+    #[test]
+    fn every_listed_code_has_one_disposition() {
+        use UplinkDisposition::*;
+        assert_eq!(uplink_disposition(10004, "AGENT_CAPABILITY_NOT_GRANTED"), Quarantine);
+        assert_eq!(uplink_disposition(10100, "AGENT_EXECUTION_INVALID"), Quarantine);
+        assert_eq!(uplink_disposition(10205, "AGENT_EXECUTION_CONFLICT"), Quarantine);
+        assert_eq!(uplink_disposition(10200, "AGENT_NODE_REVOKED"), Unpaired);
+        assert_eq!(uplink_disposition(10100, "AGENT_ARCHIVE_LIMIT"), ArchiveLimit);
+        assert_eq!(uplink_disposition(3, "AGENT_IM_UNAVAILABLE"), Retry);
+        assert_eq!(uplink_disposition(3, "SERVICE_UNAVAILABLE"), Retry);
+        assert_eq!(uplink_disposition(10300, "RATE_LIMIT_EXCEEDED"), Retry);
+        assert_eq!(uplink_disposition(10002, "TOKEN_EXPIRED"), RefreshCredentials);
+        assert_eq!(uplink_disposition(10001, ""), RefreshCredentials);
+        for (lists, d) in [(UPLINK_RETRY, Retry), (UPLINK_QUARANTINE, Quarantine), (UPLINK_UNPAIRED, Unpaired)] {
+            for m in lists { assert_eq!(uplink_disposition(10100, m), d, "{m}"); }
+        }
+    }
+
+    #[test]
+    fn anything_not_in_the_table_is_unknown_never_quarantined_or_unpaired() {
+        use UplinkDisposition::*;
+        // An unlisted business code, whatever its prefix or status, is not guessed at.
+        for (code, message) in [(10004, "AGENT_SOMETHING_NEW"), (10100, "AGENT_FUTURE_CODE"), (10004, "PERMISSION_DENIED"),
+            (10004, "AGENT_ACTOR_FORBIDDEN"), (21501, "TRANSFER_SERVICE_UNREGISTERED"), (1, "SYSTEM_ERROR"), (0, "")] {
+            assert_eq!(uplink_disposition(code, message), Unknown, "{code} {message}");
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
