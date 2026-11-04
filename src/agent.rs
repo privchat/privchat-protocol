@@ -41,7 +41,18 @@ pub enum TurnAccess {
     WorkspaceWrite,
     ReadOnly,
 }
-dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>, #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String> });
+/// Read or write, per directory a turn is given besides its start directory (WEEY_AGENT_PROTOCOL_SPEC §7.3).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DirectoryAccess {
+    Write,
+    Read,
+}
+/// A directory the node advertised, given to one turn with its access (§7.3).
+dto!(TurnDirectory { path: String, access: DirectoryAccess });
+dto!(StartPayload { capability: String, agent_id: Option<String>, prompt: String, model: String, workdir_binding_id: String, parent_execution_id: Option<String>, input_refs: Option<Vec<String>>, #[serde(default, skip_serializing_if = "Option::is_none")] role_description: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>, #[serde(default, skip_serializing_if = "Option::is_none")] access: Option<TurnAccess>, #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String>,
+    /// The turn's other directories, the complete set; absent means none (§7.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")] directories: Option<Vec<TurnDirectory>> });
 dto!(SendPayload {
     text: String,
     message_id: String,
@@ -51,7 +62,9 @@ dto!(SendPayload {
     /// The work item title shown on the node for this turn; display only.
     #[serde(default, skip_serializing_if = "Option::is_none")] title: Option<String>,
     /// The work item this turn belongs to, so the node can group turns; display only, absent for private work.
-    #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String>
+    #[serde(default, skip_serializing_if = "Option::is_none")] work_item_id: Option<String>,
+    /// This turn's other directories, the complete set; absent means none (§7.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")] directories: Option<Vec<TurnDirectory>>
 });
 dto!(CancelPayload { reason: Option<String> });
 dto!(EmptyPayload {});
@@ -234,7 +247,9 @@ pub enum ResultKind {
 }
 dto!(NodeError {
     message: String,
-    retryable: bool
+    retryable: bool,
+    /// Machine-readable facts of the refusal, e.g. the paths of AGENT_DIRECTORY_UNSUPPORTED (§7.3).
+    #[serde(default, skip_serializing_if = "Option::is_none")] detail: Option<serde_json::Value>
 });
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -493,7 +508,11 @@ pub enum EventBody {
     HistoryInvalidated(HistoryInvalidated),
     Gap(GapPayload),
 }
-dto!(Capability { name: String, version: Option<String>, available: bool, reason: Option<String> });
+dto!(Capability { name: String, version: Option<String>, available: bool, reason: Option<String>,
+    /// The executor takes writable directories besides the start directory (§7.3).
+    #[serde(default)] additional_directories: bool,
+    /// The node keeps read-only directories unwritten for this executor (§7.3).
+    #[serde(default)] read_only_directories: bool });
 dto!(NodeWorkdir {
     id: String,
     label: String
@@ -863,3 +882,37 @@ mod turn_access {
     }
 }
 
+
+#[cfg(test)]
+mod directories {
+    use super::*;
+
+    #[test]
+    fn turns_carry_their_directories_and_absent_means_none() {
+        let start: StartPayload = serde_json::from_value(serde_json::json!({"capability":"agent.claude","prompt":"p","model":"m",
+            "workdirBindingId":"/w/app","directories":[{"path":"/w/docs","access":"read"},{"path":"/w/server","access":"write"}]})).unwrap();
+        let dirs = start.directories.clone().unwrap();
+        assert_eq!(dirs[0], TurnDirectory { path: "/w/docs".into(), access: DirectoryAccess::Read });
+        assert_eq!(dirs[1].access, DirectoryAccess::Write);
+        let send: SendPayload = serde_json::from_value(serde_json::json!({"text":"t","messageId":"m","continueFromExecutionId":"1",
+            "directories":[{"path":"/w/docs","access":"read"}]})).unwrap();
+        assert_eq!(send.directories.unwrap().len(), 1);
+        let plain: SendPayload = serde_json::from_value(serde_json::json!({"text":"t","messageId":"m","continueFromExecutionId":"1"})).unwrap();
+        assert!(plain.directories.is_none());
+        assert!(!serde_json::to_value(&plain).unwrap().as_object().unwrap().contains_key("directories"));
+        // Unknown access is refused, not read as write.
+        assert!(serde_json::from_value::<TurnDirectory>(serde_json::json!({"path":"/w","access":"full"})).is_err());
+    }
+
+    #[test]
+    fn capabilities_default_to_no_extra_directories_and_errors_may_carry_detail() {
+        let cap: Capability = serde_json::from_value(serde_json::json!({"name":"agent.codex","available":true})).unwrap();
+        assert!(!cap.additional_directories && !cap.read_only_directories);
+        let cap: Capability = serde_json::from_value(serde_json::json!({"name":"agent.claude","available":true,
+            "additionalDirectories":true,"readOnlyDirectories":true})).unwrap();
+        assert!(cap.additional_directories && cap.read_only_directories);
+        let err: NodeError = serde_json::from_value(serde_json::json!({"message":"AGENT_DIRECTORY_UNSUPPORTED","retryable":false,
+            "detail":{"paths":["/w/docs"]}})).unwrap();
+        assert_eq!(err.detail.unwrap()["paths"][0], "/w/docs");
+    }
+}
