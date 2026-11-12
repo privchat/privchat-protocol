@@ -159,6 +159,11 @@ pub struct AccountUserUpdateRequest {
     pub user_id: u64,
 }
 
+/// 老 server 不下发能力位时的缺省：放开（与历史客户端解析一致）。
+fn default_true() -> bool {
+    true
+}
+
 /// 获取用户详情响应
 ///
 /// RPC路由: `account/user/detail`
@@ -176,6 +181,16 @@ pub struct AccountUserDetailResponse {
     pub user_type: i16,
     pub is_friend: bool,
     pub can_send_message: bool,
+    /// 服务端算好的加好友能力位（PROFILE_VISIBILITY §2.5）。老 server 不下发时
+    /// 按 true（放开）处理，与历史客户端解析缺省一致；最终裁决仍在服务端。
+    #[serde(default = "default_true")]
+    pub can_add_friend: bool,
+    /// can_add_friend=false 时的原因：group_policy / personal_privacy / blacklist / already_friend。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub deny_reason: Option<String>,
+    /// 查看凭证（§2.5.1，u64 走字符串防 JS 精度）；friend/apply 凭此放行。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub grant_id: Option<String>,
     pub source_type: String,
     pub source_id: String,
     /// 是否已关注（仅 user_type=2 Bot 有意义；非 bot 永远 false）
