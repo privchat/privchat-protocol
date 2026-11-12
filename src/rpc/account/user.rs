@@ -139,26 +139,6 @@ pub struct AccountUserShareCardRequest {
     pub sharer_id: u64,
 }
 
-/// 更新用户信息请求
-///
-/// RPC路由: `account/user/update`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccountUserUpdateRequest {
-    /// 显示名称（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub display_name: Option<String>,
-    /// 头像URL（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub avatar_url: Option<String>,
-    /// 个人简介（可选）
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub bio: Option<String>,
-
-    /// 用户ID（服务器端填充，客户端不可设置）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
-}
-
 /// 老 server 不下发能力位时的缺省：放开（与历史客户端解析一致）。
 fn default_true() -> bool {
     true
@@ -206,16 +186,6 @@ pub struct AccountUserDetailResponse {
     /// 老 server 不发 ⇒ 0 ⇒ 客户端按「无版本部分写入」处理（只补空缺，不覆盖）。
     #[serde(default)]
     pub sync_version: u64,
-}
-
-/// 更新用户信息响应
-///
-/// RPC路由: `account/user/update`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccountUserUpdateResponse {
-    pub status: String,
-    pub action: String,
-    pub timestamp: u64,
 }
 
 /// 生成用户分享卡片响应

@@ -19,16 +19,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-/// 获取个人资料请求
-///
-/// RPC路由: `account/profile/get`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccountProfileGetRequest {
-    /// 用户ID（服务器端填充，客户端不需要传）
-    #[serde(skip_deserializing, default)]
-    pub user_id: u64,
-}
-
 /// 更新个人资料请求
 ///
 /// RPC路由: `account/profile/update`
@@ -49,16 +39,6 @@ pub struct AccountProfileUpdateRequest {
     /// 用户ID（服务器端填充，客户端不需要传）
     #[serde(skip_deserializing, default)]
     pub user_id: u64,
-}
-
-/// 获取个人资料响应
-///
-/// RPC路由: `account/profile/get`
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AccountProfileGetResponse {
-    pub status: String,
-    pub action: String,
-    pub timestamp: u64,
 }
 
 /// 更新个人资料响应
