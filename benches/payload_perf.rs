@@ -39,6 +39,7 @@ fn text_typed() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        links: vec![],
     }
 }
 fn text_legacy() -> LocalMessagePayloadEnvelope {
@@ -59,6 +60,7 @@ fn reply_typed() -> MessagePayloadEnvelope {
         reply_to_message_id: Some(0xDEAD_BEEF_CAFE_BABE),
         mentioned_user_ids: vec![],
         message_source: None,
+        links: vec![],
     }
 }
 fn reply_legacy() -> LocalMessagePayloadEnvelope {
@@ -85,6 +87,7 @@ fn image_typed() -> MessagePayloadEnvelope {
         reply_to_message_id: None,
         mentioned_user_ids: vec![],
         message_source: None,
+        links: vec![],
     }
 }
 fn image_legacy() -> LocalMessagePayloadEnvelope {
@@ -120,6 +123,7 @@ fn full_typed() -> MessagePayloadEnvelope {
             source_type: "search".to_string(),
             source_id: "session-99".to_string(),
         }),
+        links: vec![],
     }
 }
 fn full_legacy() -> LocalMessagePayloadEnvelope {
