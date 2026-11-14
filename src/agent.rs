@@ -153,10 +153,11 @@ impl NodeCommand {
                 {
                     return Err("AGENT_EXECUTION_INVALID");
                 }
+                // A blank model is legal: the node then follows the executor's own default
+                // (WEEY_AGENT_PROTOCOL_SPEC §4.1), so only the routing fields must be present.
                 if [
                     &c.payload.capability,
                     &c.payload.prompt,
-                    &c.payload.model,
                     &c.payload.workdir_binding_id,
                 ]
                 .iter()
@@ -882,6 +883,26 @@ mod turn_access {
     }
 }
 
+
+#[cfg(test)]
+mod turn_model {
+    use super::*;
+    fn start(field: &str, value: serde_json::Value) -> Result<NodeCommand, &'static str> {
+        let mut body = serde_json::json!({"protocolVersion":1,"kind":"execution.start","commandId":"cmd-1","executionId":"1","scope":{"kind":"workspace","ref":"2"},
+            "payload":{"capability":"agent.qoder","prompt":"p","model":"","workdirBindingId":"/w/app","agentId":"2","workItemId":"4"}});
+        body["payload"][field] = value;
+        decode_command("agent/execution/start", &serde_json::to_vec(&body).unwrap())
+    }
+    #[test]
+    fn a_blank_model_follows_the_executor_default_while_routing_fields_stay_required() {
+        // The server omits the model whenever the employee follows the executor's configured default.
+        assert!(start("model", serde_json::json!("")).is_ok());
+        assert!(start("model", serde_json::json!("efficient")).is_ok());
+        for field in ["capability", "prompt", "workdirBindingId"] {
+            assert_eq!(start(field, serde_json::json!("")), Err("AGENT_EXECUTION_INVALID"), "{field}");
+        }
+    }
+}
 
 #[cfg(test)]
 mod directories {
