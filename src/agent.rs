@@ -509,11 +509,43 @@ pub enum EventBody {
     HistoryInvalidated(HistoryInvalidated),
     Gap(GapPayload),
 }
+// One model the executor offers under its current login on this node (§7.4).
+dto!(ExecutorModel { id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")] name: Option<String> });
 dto!(Capability { name: String, version: Option<String>, available: bool, reason: Option<String>,
     /// The executor takes writable directories besides the start directory (§7.3).
     #[serde(default)] additional_directories: bool,
     /// The node keeps read-only directories unwritten for this executor (§7.3).
-    #[serde(default)] read_only_directories: bool });
+    #[serde(default)] read_only_directories: bool,
+    /// Selectable models; empty when the executor exposes no catalog and the client must ask the user (§7.4).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")] models: Vec<ExecutorModel>,
+    /// The executor's own default model, which a blank turn model follows (§4.1, §7.4).
+    #[serde(default, skip_serializing_if = "Option::is_none")] default_model: Option<String> });
+/// A capability reports at most this many models, so one hello stays inside the frame limit (§7.4).
+pub const MAX_EXECUTOR_MODELS: usize = 64;
+impl Capability {
+    /// The model catalog rules of §7.4. A catalog that names a default it does not list is refused,
+    /// not silently repaired: the client would otherwise offer a model the executor never reported.
+    pub fn validate(&self) -> Result<(), &'static str> {
+        let bounded = |s: &str| !s.is_empty() && s.chars().count() <= 120;
+        if self.models.len() > MAX_EXECUTOR_MODELS
+            || self.models.iter().any(|m| {
+                !bounded(&m.id) || m.name.as_ref().is_some_and(|n| n.chars().count() > 120)
+            })
+        {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
+        let mut seen = std::collections::HashSet::new();
+        if self.models.iter().any(|m| !seen.insert(&m.id)) {
+            return Err("AGENT_EXECUTION_INVALID");
+        }
+        match self.default_model.as_deref() {
+            None | Some("") => Ok(()),
+            Some(id) if self.models.iter().any(|m| m.id == id) => Ok(()),
+            Some(_) => Err("AGENT_EXECUTION_INVALID"),
+        }
+    }
+}
 dto!(NodeWorkdir {
     id: String,
     label: String
@@ -935,5 +967,64 @@ mod directories {
         let err: NodeError = serde_json::from_value(serde_json::json!({"message":"AGENT_DIRECTORY_UNSUPPORTED","retryable":false,
             "detail":{"paths":["/w/docs"]}})).unwrap();
         assert_eq!(err.detail.unwrap()["paths"][0], "/w/docs");
+    }
+}
+
+#[cfg(test)]
+mod executor_models {
+    use super::*;
+    fn cap(v: serde_json::Value) -> Capability {
+        serde_json::from_value(v).unwrap()
+    }
+
+    #[test]
+    fn a_capability_without_a_catalog_stays_valid_and_serializes_without_one() {
+        let old = cap(serde_json::json!({"name":"agent.codex","available":true}));
+        assert!(old.models.is_empty() && old.default_model.is_none());
+        assert!(old.validate().is_ok());
+        let json = serde_json::to_value(&old).unwrap();
+        assert!(!json.as_object().unwrap().contains_key("models"));
+        assert!(!json.as_object().unwrap().contains_key("defaultModel"));
+    }
+
+    #[test]
+    fn the_catalog_carries_ids_labels_and_the_executors_own_default() {
+        let c = cap(serde_json::json!({"name":"agent.codex","available":true,"defaultModel":"gpt-6-luna",
+            "models":[{"id":"gpt-6-luna","name":"Luna"},{"id":"gpt-5.6-terra"}]}));
+        assert!(c.validate().is_ok());
+        assert_eq!(c.models[0], ExecutorModel { id: "gpt-6-luna".into(), name: Some("Luna".into()) });
+        assert_eq!(c.models[1].name, None);
+        assert_eq!(c.default_model.as_deref(), Some("gpt-6-luna"));
+        let round: Capability = serde_json::from_value(serde_json::to_value(&c).unwrap()).unwrap();
+        assert_eq!(round, c);
+    }
+
+    #[test]
+    fn a_default_outside_the_catalog_and_duplicate_or_oversized_ids_are_refused() {
+        let base = serde_json::json!({"name":"agent.codex","available":true,"models":[{"id":"a"}]});
+        let mut outside = base.clone();
+        outside["defaultModel"] = serde_json::json!("b");
+        assert_eq!(cap(outside.clone()).validate(), Err("AGENT_EXECUTION_INVALID"));
+        // The same default is legal once the executor lists it.
+        outside["models"] = serde_json::json!([{"id":"a"},{"id":"b"}]);
+        assert!(cap(outside).validate().is_ok());
+        let mut empty_catalog = base.clone();
+        empty_catalog["models"] = serde_json::json!([]);
+        empty_catalog["defaultModel"] = serde_json::json!("a");
+        assert!(cap(empty_catalog).validate().is_err());
+        let mut duplicate = base.clone();
+        duplicate["models"] = serde_json::json!([{"id":"a"},{"id":"a"}]);
+        assert!(cap(duplicate).validate().is_err());
+        for bad in [serde_json::json!(""), serde_json::json!("x".repeat(121))] {
+            let mut c = base.clone();
+            c["models"] = serde_json::json!([{"id":bad}]);
+            assert!(cap(c).validate().is_err());
+        }
+        let mut long_label = base.clone();
+        long_label["models"] = serde_json::json!([{"id":"a","name":"n".repeat(121)}]);
+        assert!(cap(long_label).validate().is_err());
+        let mut too_many = base.clone();
+        too_many["models"] = serde_json::json!((0..=MAX_EXECUTOR_MODELS).map(|i| serde_json::json!({"id":format!("m{i}")})).collect::<Vec<_>>());
+        assert!(cap(too_many).validate().is_err());
     }
 }
