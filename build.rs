@@ -9,6 +9,10 @@
 use std::path::PathBuf;
 use std::process::Command;
 
+const FLATC_VERSION: &str = "flatc version 25.12.19";
+const FLATC_RELEASE: &str =
+    "https://github.com/google/flatbuffers/releases/tag/v25.12.19-2026-02-06-03fffb2";
+
 const SCHEMAS: &[&str] = &[
     "common.fbs",
     "auth.fbs",
@@ -49,7 +53,20 @@ fn main() {
 
     let out_dir = std::env::var("OUT_DIR").expect("OUT_DIR not set");
 
-    let mut cmd = Command::new("flatc");
+    println!("cargo:rerun-if-env-changed=FLATC");
+    let flatc = std::env::var_os("FLATC").unwrap_or_else(|| "flatc".into());
+    let version = Command::new(&flatc)
+        .arg("--version")
+        .output()
+        .unwrap_or_else(|err| panic!("Cannot execute {:?}: {err}. Install {FLATC_RELEASE}", flatc));
+    let actual = String::from_utf8_lossy(&version.stdout);
+    assert!(
+        version.status.success() && actual.trim() == FLATC_VERSION,
+        "Expected {FLATC_VERSION}, got {:?}. Install {FLATC_RELEASE}",
+        actual.trim()
+    );
+
+    let mut cmd = Command::new(&flatc);
     cmd.arg("--rust")
         .arg("-o")
         .arg(&out_dir)
@@ -62,8 +79,7 @@ fn main() {
     let status = cmd.status().unwrap_or_else(|e| {
         panic!(
             "Failed to execute flatc: {}\n\
-             Install flatc 24.x: `brew install flatbuffers` or \
-             https://github.com/google/flatbuffers/releases",
+             See {FLATC_RELEASE}",
             e
         );
     });

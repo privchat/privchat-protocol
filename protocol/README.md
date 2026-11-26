@@ -25,9 +25,9 @@ All files share `namespace privchat.protocol`.
 
 ## Tooling
 
-- **Required:** `flatc` 24.x (verified with `flatc 24.3.25`).
-- Install: `brew install flatbuffers` (macOS), or download from
-  <https://github.com/google/flatbuffers/releases>.
+- **Required:** `flatc` 25.12.19 from [v25.12.19-2026-02-06-03fffb2](https://github.com/google/flatbuffers/releases/tag/v25.12.19-2026-02-06-03fffb2).
+- Download the compiler from that release and place it on PATH, or set `FLATC` to its executable path.
+- Rust uses the crates.io runtime `=25.12.19`. TypeScript uses the latest published npm runtime, `25.9.23`, and verifies it with generated bindings and shared wire fixtures.
 - CI must pin a single `flatc` version — generated code differs across
   major versions.
 

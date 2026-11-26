@@ -9,7 +9,7 @@ repository = "https://github.com/privchat/privchat-protocol"
 description = "Protocol library for PrivChat IM — FlatBuffers wire format, message types, RPC routes, error codes, presence, and notifications"
 
 [dependencies]
-flatbuffers = "24.3"
+flatbuffers = "=25.12.19"
 base64 = "0.22"
 num-bigint = { version = "0.4", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
